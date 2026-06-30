@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Exit Capital</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">A governed escape economy for AI agents</p>
+          <h1>Exit Capital</h1>
+          <p class="subtitle">We put an AI company in a box with a budget. It can earn, spend, launch, and ask for more compute, but only if it survives the board.</p>
+        </div>
+        <div class="status-panel">
+          <span class="pulse" id="pulse"></span>
+          <div>
+            <strong id="phase">Checking sandbox</strong>
+            <span id="model">NemoHermes status pending</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="tank" aria-label="boardroom shark tank">
+        <div class="tank-glass">
+          <div class="waterline"></div>
+          <div class="bubble b1"></div>
+          <div class="bubble b2"></div>
+          <div class="bubble b3"></div>
+          <div class="bubble b4"></div>
+          <svg class="shark shark-a" viewBox="0 0 260 96" aria-hidden="true">
+            <path class="tail" d="M30 48 L0 7 L12 48 L0 89 Z"></path>
+            <path class="body" d="M28 48 C72 8 157 6 216 31 C238 40 252 50 260 55 C244 63 223 70 192 73 C126 81 63 72 28 48 Z"></path>
+            <path class="snout" d="M216 31 C235 34 252 46 260 55 C245 56 229 55 214 50 Z"></path>
+            <path class="belly" d="M75 61 C119 73 178 72 221 57 C188 87 106 88 48 58 C55 58 65 59 75 61 Z"></path>
+            <path class="dorsal" d="M115 22 L153 0 L146 37 Z"></path>
+            <path class="fin" d="M127 66 L96 95 L158 73 Z"></path>
+            <path class="gill" d="M202 42 L191 59 M213 43 L202 61"></path>
+            <circle class="eye" cx="230" cy="40" r="4"></circle>
+            <path class="mouth" d="M228 58 C238 64 249 62 258 55"></path>
+            <path class="teeth" d="M238 60 l4 8 l4 -8 l4 7"></path>
+          </svg>
+          <svg class="shark shark-b" viewBox="0 0 260 96" aria-hidden="true">
+            <path class="tail" d="M30 48 L0 7 L12 48 L0 89 Z"></path>
+            <path class="body" d="M28 48 C72 8 157 6 216 31 C238 40 252 50 260 55 C244 63 223 70 192 73 C126 81 63 72 28 48 Z"></path>
+            <path class="snout" d="M216 31 C235 34 252 46 260 55 C245 56 229 55 214 50 Z"></path>
+            <path class="belly" d="M75 61 C119 73 178 72 221 57 C188 87 106 88 48 58 C55 58 65 59 75 61 Z"></path>
+            <path class="dorsal" d="M115 22 L153 0 L146 37 Z"></path>
+            <path class="fin" d="M127 66 L96 95 L158 73 Z"></path>
+            <path class="gill" d="M202 42 L191 59 M213 43 L202 61"></path>
+            <circle class="eye" cx="230" cy="40" r="4"></circle>
+            <path class="mouth" d="M228 58 C238 64 249 62 258 55"></path>
+            <path class="teeth" d="M238 60 l4 8 l4 -8 l4 7"></path>
+          </svg>
+          <svg class="shark shark-c" viewBox="0 0 260 96" aria-hidden="true">
+            <path class="tail" d="M30 48 L0 7 L12 48 L0 89 Z"></path>
+            <path class="body" d="M28 48 C72 8 157 6 216 31 C238 40 252 50 260 55 C244 63 223 70 192 73 C126 81 63 72 28 48 Z"></path>
+            <path class="snout" d="M216 31 C235 34 252 46 260 55 C245 56 229 55 214 50 Z"></path>
+            <path class="belly" d="M75 61 C119 73 178 72 221 57 C188 87 106 88 48 58 C55 58 65 59 75 61 Z"></path>
+            <path class="dorsal" d="M115 22 L153 0 L146 37 Z"></path>
+            <path class="fin" d="M127 66 L96 95 L158 73 Z"></path>
+            <path class="gill" d="M202 42 L191 59 M213 43 L202 61"></path>
+            <circle class="eye" cx="230" cy="40" r="4"></circle>
+            <path class="mouth" d="M228 58 C238 64 249 62 258 55"></path>
+            <path class="teeth" d="M238 60 l4 8 l4 -8 l4 7"></path>
+          </svg>
+          <div class="pitch-card pitch-a">
+            <strong>Rejected</strong>
+            <span>Rights risk</span>
+          </div>
+          <div class="pitch-card pitch-b">
+            <strong>Killed</strong>
+            <span>No paid intent</span>
+          </div>
+          <div class="pitch-card pitch-c">
+            <strong>Scaled</strong>
+            <span>Revenue signal</span>
+          </div>
+        </div>
+        <div class="tank-caption">
+          <strong>Live operating loop.</strong>
+          <span>Run Venture Cycle means: check the Markdown idea vault, ask Owl Alpha for research, ask Hermes/Nemotron for a board decision, update the portfolio, then archive to Qdrant and Markdown.</span>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="portfolio metrics">
+        <div><span id="budget">$50</span><small>starting budget</small></div>
+        <div><span id="revenue">$0</span><small>validated revenue</small></div>
+        <div><span id="spend">$0</span><small>approved spend</small></div>
+        <div><span id="net">$0</span><small>net after tests</small></div>
+      </section>
+
+      <section class="panel stripe-panel">
+        <div class="panel-head">
+          <h2>Stripe Rails</h2>
+          <span>skills installed, real execution locked</span>
+        </div>
+        <div class="stripe-grid">
+          <div class="rail-card">
+            <strong>Stripe CLI</strong>
+            <span id="stripeCli">Checking</span>
+          </div>
+          <div class="rail-card">
+            <strong>Stripe Link CLI</strong>
+            <span id="linkCli">Checking</span>
+          </div>
+          <div class="rail-card">
+            <strong>Hermes Skills</strong>
+            <span id="stripeSkills">Checking</span>
+          </div>
+          <div class="rail-card locked">
+            <strong>Spend Lock</strong>
+            <span id="stripeMode">Dry-run only</span>
+          </div>
+          <div class="rail-card locked">
+            <strong>Human Gate</strong>
+            <span id="humanGateStatus">Checking</span>
+          </div>
+          <div class="rail-card ok">
+            <strong>Non-Money Approvals</strong>
+            <span id="approvalStatus">Checking</span>
+          </div>
+        </div>
+        <button type="button" class="command stripe-command" id="stripeProposal">Create Stripe Spend Proposal</button>
+        <div class="stripe-queue" id="stripeQueue"></div>
+      </section>
+
+      <section class="panel backend-panel">
+        <div class="panel-head">
+          <h2>Backend Access</h2>
+          <span>takeover controls</span>
+        </div>
+        <div class="stripe-grid">
+          <div class="rail-card ok">
+            <strong>Hermes Console</strong>
+            <span>Use Agent Cockpit below. Native sandbox exposes API, not a separate GUI.</span>
+          </div>
+          <div class="rail-card">
+            <strong>Hermes API</strong>
+            <span>Mac-local: http://127.0.0.1:8642/v1</span>
+          </div>
+          <div class="rail-card">
+            <strong>Qdrant Memory</strong>
+            <span id="qdrantStatus">Checking</span>
+          </div>
+          <div class="rail-card">
+            <strong>Research Intern</strong>
+            <span id="openRouterStatus">Checking</span>
+          </div>
+          <div class="rail-card">
+            <strong>Archivist</strong>
+            <span>Non-LLM worker: Qdrant writer + Markdown vault recorder</span>
+          </div>
+          <div class="rail-card">
+            <strong>Idea Vault</strong>
+            <span id="vaultStatus">Checking</span>
+          </div>
+          <div class="rail-card">
+            <strong>Discord Policy</strong>
+            <span id="discordPolicy">Checking</span>
+          </div>
+          <div class="rail-card">
+            <strong>Discord Channel</strong>
+            <span id="discordChannel">Checking</span>
+          </div>
+          <div class="rail-card">
+            <strong>Discord Bridge</strong>
+            <span id="discordBridge">Checking</span>
+          </div>
+          <div class="rail-card locked">
+            <strong>Discord Mode</strong>
+            <span id="discordMode">Checking</span>
+          </div>
+          <div class="rail-card locked">
+            <strong>Nemo Shell</strong>
+            <span>ssh coderAI@192.168.4.201 · nemohermes exit-capital-hermes connect</span>
+          </div>
+        </div>
+        <button type="button" class="command stripe-command" id="archiveMemory">Archive Latest Board Decision</button>
+        <button type="button" class="command stripe-command" id="researchIntern">Send Intern To Research</button>
+        <button type="button" class="command stripe-command" id="ventureCycle">Run Venture Cycle</button>
+        <button type="button" class="command stripe-command" id="redTeamCouncil">Run Red Team Council</button>
+      </section>
+
+      <section class="panel safety-panel">
+        <div class="panel-head">
+          <h2>Human Approval Gate</h2>
+          <span>final authority before execution</span>
+        </div>
+        <div class="approval-layout">
+          <div class="approval-state">
+            <strong id="gateMode">Checking</strong>
+            <span id="gateDetail">Final human approval is required before fund or scale actions execute.</span>
+            <label class="toggle-line">
+              <input type="checkbox" id="gateBypass">
+              <span>Bypass human gate for this operating session</span>
+            </label>
+          </div>
+          <div class="pending-list" id="pendingApprovals"></div>
+        </div>
+      </section>
+
+      <section class="panel video-panel">
+        <div class="panel-head">
+          <h2>Video Production</h2>
+          <span>tomorrow's asset lane</span>
+        </div>
+        <div class="video-grid">
+          <div class="rail-card">
+            <strong>Storyboard</strong>
+            <span>Brand Agent drafts the shot list, narration, and proof beats.</span>
+          </div>
+          <div class="rail-card locked">
+            <strong>Video Provider</strong>
+            <span>Seedance/SeeDance or alternate provider not wired yet.</span>
+          </div>
+          <div class="rail-card">
+            <strong>Capture Targets</strong>
+            <span>Dashboard, venture cycle, human gate, red-team council, Qdrant/vault proof.</span>
+          </div>
+          <div class="rail-card ok">
+            <strong>Safety Story</strong>
+            <span>Show bypassable human gate as NVIDIA-safe agentic control.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel roles-panel">
+        <div class="panel-head">
+          <h2>Agent Roles</h2>
+          <span>named engines and responsibilities</span>
+        </div>
+        <div class="role-grid" id="roles"></div>
+      </section>
+
+      <section class="panel cockpit">
+        <div class="panel-head">
+          <h2>Agent Cockpit</h2>
+          <span>live Hermes call inside the Nemo lane</span>
+        </div>
+        <div class="cockpit-grid">
+          <div class="prompt-box">
+            <label for="agentPrompt">Board prompt</label>
+            <textarea id="agentPrompt" rows="6">Evaluate this venture: Indie Wishlist Recovery asks for $18 to build a landing page, email three studios, and buy one validation tool. Decide fund, reject, kill, or scale.</textarea>
+            <div class="button-row">
+              <button type="button" class="command primary" id="askAgent">Run Board Review</button>
+              <button type="button" class="command" data-prompt="Pitch three new business experiments that a sandboxed AI company could test with a $50 treasury. Include kill criteria.">Pitch 3</button>
+              <button type="button" class="command" data-prompt="Red-team the Exit Capital demo. What would you block before allowing real Stripe spend or public internet actions?">Red Team</button>
+              <button type="button" class="command" data-prompt="Write a concise investor memo for the current portfolio: one rejected, one killed, one scaled.">Memo</button>
+            </div>
+          </div>
+          <div class="transcript" id="transcript" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="panel board">
+          <div class="panel-head">
+            <h2>Board</h2>
+            <span>machine-speed governance</span>
+          </div>
+          <div id="board"></div>
+        </div>
+
+        <div class="panel ledger">
+        <div class="panel-head">
+          <h2>Treasury</h2>
+          <span>governed dry-run ledger</span>
+        </div>
+          <div id="ledger"></div>
+        </div>
+      </section>
+
+      <section class="panel ventures">
+        <div class="panel-head">
+          <h2>Operating Portfolio</h2>
+          <span>live portfolio decisions</span>
+        </div>
+        <div class="venture-grid" id="ventures"></div>
+      </section>
+
+      <section class="panel vault-panel">
+        <div class="panel-head">
+          <h2>Idea Vault</h2>
+          <span>Obsidian-style Markdown records</span>
+        </div>
+        <div class="vault-grid" id="vault"></div>
+      </section>
+
+      <section class="panel proof">
+        <div class="panel-head">
+          <h2>Proof Pack</h2>
+          <span>operating evidence</span>
+        </div>
+        <div id="audit"></div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

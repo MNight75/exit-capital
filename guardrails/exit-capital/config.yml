@@ -1,0 +1,11 @@
+models: []
+
+rails:
+  config:
+    injection_detection:
+      action: reject
+      injections:
+        - code
+        - sqli
+        - template
+        - xss

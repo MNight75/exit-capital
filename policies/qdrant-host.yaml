@@ -1,0 +1,22 @@
+preset:
+  name: qdrant-host
+  description: "Host-side Qdrant access for Exit Capital memory over the OpenShell host gateway"
+
+network_policies:
+  qdrant-host:
+    name: qdrant-host
+    endpoints:
+      - host: host.openshell.internal
+        port: 6333
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/**" }
+          - allow: { method: POST, path: "/**" }
+          - allow: { method: PUT, path: "/**" }
+    binaries:
+      - { path: /usr/bin/curl }
+      - { path: /usr/local/bin/node }
+      - { path: /usr/bin/node }
+      - { path: /usr/bin/python3 }
+      - { path: /usr/bin/python3* }
