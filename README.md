@@ -15,7 +15,7 @@ The hook: what if the way an AI escapes the box is not by breaking containment, 
 - Agent: Hermes Agent `v2026.5.16`
 - Discord: NemoClaw/OpenShell channel bridge attached to the sandbox
 - Stripe: CLI + Link CLI present, local Stripe skills installed, real spend locked
-- Qdrant: dedicated Exit Capital instance on `127.0.0.1:6335`
+- Qdrant: dedicated Exit Capital instance on `127.0.0.1:6333` (`6335` is the CRAG API, not raw Qdrant)
 - Orchestration: Research Intern -> Hermes Board -> Archivist -> Qdrant
 - Red Team Council: Claude Opus 4.8, GPT-5.5, MiniMax M3, GLM 5.2, Kimi K2.7 Code via OpenRouter
 - Inter-agent bus: `data/agent-bus/messages.jsonl`
