@@ -1,5 +1,7 @@
 # Exit Capital
 
+See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the system map, runtime flow, and repository layout.
+
 Exit Capital is an operating console for an autonomous venture studio with an adversarial board. Agents pitch business experiments, receive capped capital, launch inside a NemoClaw/OpenShell sandbox, and are scaled or killed by evidence.
 
 The hook: what if the way an AI escapes the box is not by breaking containment, but by earning more budget, tools, and compute under governance?

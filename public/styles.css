@@ -504,11 +504,10 @@ body {
 /* ====== COCKPIT DRAWER ====== */
 .cockpit {
   flex-shrink: 0;
-  overflow: hidden;
-  max-height: 0;
-  transition: max-height .28s cubic-bezier(.4,0,.2,1);
+  overflow: visible;
+  max-height: none;
 }
-.cockpit.open { max-height: 220px; }
+.cockpit.open { max-height: none; }
 
 .cockpit-inner {
   display: flex;

@@ -469,10 +469,12 @@ async function refreshInbox() {
 /* ── COCKPIT TOGGLE ────────────────────────────────────────── */
 let cockpitOpen = false;
 $('#cockpitToggle').addEventListener('click', () => {
-  cockpitOpen = !cockpitOpen;
-  $('#cockpit').classList.toggle('open', cockpitOpen);
-  $('#cockpitToggle').classList.toggle('active', cockpitOpen);
+  cockpitOpen = true;
+  $('#cockpit').classList.add('open');
+  $('#cockpitToggle').classList.add('active');
 });
+$('#cockpit').classList.add('open');
+$('#cockpitToggle').classList.add('active');
 
 /* ── COCKPIT API CALLS ─────────────────────────────────────── */
 async function call(endpoint, body, btn, label) {
