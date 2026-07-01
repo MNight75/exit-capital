@@ -53,6 +53,12 @@ nemohermes exit-capital-hermes connect
 
 We put an AI company in a box with a capped treasury, Stripe rails, memory, and a hostile board. Its job is simple: earn the right to more budget, tools, and compute by surviving governance.
 
+## Pipeline Governance
+
+Exit Capital now uses an artifact-backed pipeline: no visible company card appears unless the required proof for that lane exists. Failed research, board, model, or safety runs are stored as audit/backlog memory instead of becoming fake ventures.
+
+See [`docs/PIPELINE_CRITERIA.md`](docs/PIPELINE_CRITERIA.md) for the full lane criteria: Research Backlog -> Pre-Pitch -> Board Pitch -> Red Team -> Capital Gate -> Human Gate -> Approved Spinout -> Operating Company.
+
 ## What Is Real
 
 - Live Hermes Agent API through NemoClaw/OpenShell at `127.0.0.1:8642`.
@@ -66,14 +72,14 @@ We put an AI company in a box with a capped treasury, Stripe rails, memory, and 
 ## Terms
 
 - Research Intern: Owl Alpha/OpenRouter LLM that finds and frames ideas.
-- Board: Hermes/Nemotron LLM that decides fund, reject, kill, or scale.
-- Red Team Council: synchronous five-model adversarial review before high-stakes decisions.
-- CFO: currently a board seat, owns budget caps and money gates; should become a separate endpoint before live Stripe.
+- Board: Hermes/Nemotron decision layer that turns a research memo into a signed board artifact.
+- Red Team Council: adversarial review that attacks the Board's assumptions before capital is allowed.
+- CFO: capital gate that appears only after research, board, red-team, and board-final artifacts exist.
 - Archivist: deterministic server worker, not an LLM; writes Qdrant, audit log, and Markdown vault records.
 - Secretary/Mailman: deterministic message router; owns Discord HOME and inter-agent bus delivery.
 - Human Approval Gate: final human-in-the-loop; agents propose, the human authorizes execution unless bypass is explicitly enabled.
 - Brand Agent: defined creative role for identity, pitch, and video briefs; provider not yet wired.
-- Run Venture Cycle: check prior Markdown ideas, research one candidate, board it, update portfolio/ledger, then archive it.
+- Run Venture Cycle: check prior Markdown ideas, research one candidate, board it, update portfolio/ledger only if required artifacts exist, then archive it.
 - Run Red Team Council: send the current idea/portfolio to five models and archive the adversarial report.
 - Video Production: dashboard lane for tomorrow's storyboard/provider work; Seedance/SeeDance provider is not wired yet.
 
