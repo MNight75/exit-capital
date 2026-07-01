@@ -7,7 +7,7 @@ const esc = s => String(s ?? '')
 /* ── AGENT COUNCIL ─────────────────────────────────────────── */
 const AGENTS = [
   { id:'board', av:'◈', nm:'Board',            rl:'Hermes · Nemotron orchestrator' },
-  { id:'owl',   av:'◑', nm:'Researcher',        rl:'Owl Research · Claude Haiku' },
+  { id:'research', av:'◑', nm:'Researcher',     rl:'Research · Claude Haiku' },
   { id:'red',   av:'⚔', nm:'Red-Team Council', rl:'5-model adversary' },
   { id:'safe',  av:'⛨', nm:'Safety Gate',      rl:'Nemotron 3.5 Content Safety' },
   { id:'cfo',   av:'$', nm:'CFO',               rl:'treasury · kill-criteria' },
@@ -344,7 +344,7 @@ async function refresh() {
     // Derive agent active states — map to valid CSS classes: active, ok, danger
     const recentRoles = (d.transcript || []).slice(-5).map(m => m.role);
     const activeIds = [], agentStates = {};
-    if (recentRoles.includes('intern'))   { activeIds.push('owl'); }
+    if (recentRoles.includes('intern'))   { activeIds.push('research'); }
     if (recentRoles.some(r => r === 'agent' || r === 'board-council')) { activeIds.push('board'); }
     if (recentRoles.includes('archivist')) { activeIds.push('arch'); agentStates['arch'] = 'ok'; }
     if (recentRoles.includes('cfo'))       { activeIds.push('cfo'); }
