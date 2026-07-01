@@ -1761,8 +1761,13 @@ function run(command, args, timeout = 12000) {
 
 function runWithInput(command, args, input, timeout = 12000) {
   return new Promise((resolve) => {
-    const child = execFile(command, args, { timeout, env: { ...process.env, PATH: `/Users/coderAI/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:${process.env.PATH || ""}` } }, (error, stdout, stderr) => {
-      resolve({ ok: !error, stdout: stdout.toString(), stderr: stderr.toString() });
+    const child = execFile(command, args, {
+      timeout,
+      maxBuffer: 1024 * 1024 * 4,
+      cwd: root,
+      env: { ...process.env, PATH: `/Users/coderAI/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:${process.env.PATH || ""}` }
+    }, (error, stdout, stderr) => {
+      resolve({ ok: !error, stdout: stdout.toString(), stderr: stderr.toString(), error: error?.message || "" });
     });
     child.stdin.end(input);
   });
@@ -2176,24 +2181,16 @@ async function callResearchIntern(prompt, timeoutMs = 240000) {
   const claudePath = process.env.CLAUDE_CODE_PATH || "/Users/coderAI/.local/bin/claude";
   const system = "You are Exit Capital's research intern (Archivist). Research business viability, customer pain, competitors, and validation risks. Be concise and structured.";
   const fullPrompt = `${system}\n\n${prompt}`;
-  return new Promise((resolve, reject) => {
-    execFile(
-      claudePath,
-      ["--model", "claude-haiku-4-5", "--print", "--output-format", "text", fullPrompt],
-      {
-        timeout: timeoutMs,
-        maxBuffer: 1024 * 1024 * 4,
-        cwd: root,
-        env: { ...process.env, PATH: `/Users/coderAI/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:${process.env.PATH || ""}` }
-      },
-      (error, stdout, stderr) => {
-        if (error) { reject(new Error((stderr || error.message || "Archivist call failed.").toString().trim())); return; }
-        const content = stdout.toString().trim();
-        if (!content) { reject(new Error("Archivist returned empty response.")); return; }
-        resolve(content);
-      }
-    );
-  });
+  const result = await runWithInput(
+    claudePath,
+    ["--model", "claude-haiku-4-5", "--print", "--output-format", "text"],
+    fullPrompt,
+    timeoutMs
+  );
+  if (!result.ok) throw new Error((result.stderr || result.error || "Archivist call failed.").toString().trim());
+  const content = result.stdout.toString().trim();
+  if (!content) throw new Error("Archivist returned empty response.");
+  return content;
 }
 
 async function callOpenRouterModel(model, prompt, system, timeoutMs = 180000) {
@@ -2242,39 +2239,16 @@ async function callClaudeCodeBoard(prompt, system, timeoutMs = 180000) {
     prompt
   ].join("\n");
 
-  return new Promise((resolve, reject) => {
-    execFile(
-      claudePath,
-      [
-        "--model", model,
-        "--print",
-        "--output-format", "text",
-        "--max-budget-usd", budget,
-        fullPrompt
-      ],
-      {
-        timeout: timeoutMs,
-        maxBuffer: 1024 * 1024 * 4,
-        cwd: root,
-        env: {
-          ...process.env,
-          PATH: `/Users/coderAI/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:${process.env.PATH || ""}`
-        }
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error((stderr || error.message || "Claude Code board call failed.").toString().trim()));
-          return;
-        }
-        const content = stdout.toString().trim();
-        if (!content) {
-          reject(new Error((stderr || "Claude Code returned no board memo content.").toString().trim()));
-          return;
-        }
-        resolve({ model, content });
-      }
-    );
-  });
+  const result = await runWithInput(
+    claudePath,
+    ["--model", model, "--print", "--output-format", "text", "--max-budget-usd", budget],
+    fullPrompt,
+    timeoutMs
+  );
+  if (!result.ok) throw new Error((result.stderr || result.error || "Claude Code board call failed.").toString().trim());
+  const content = result.stdout.toString().trim();
+  if (!content) throw new Error((result.stderr || "Claude Code returned no board memo content.").toString().trim());
+  return { model, content };
 }
 
 async function callOpenAIBoard(prompt, system, timeoutMs = 180000) {
@@ -2327,41 +2301,16 @@ async function callCodexBoard(prompt, system, timeoutMs = 180000) {
     "Return only the board memo. Do not edit files, run shell commands, or change system state."
   ].join("\n");
 
-  return new Promise((resolve, reject) => {
-    execFile(
-      codexPath,
-      [
-        "exec",
-        "--ephemeral",
-        "--skip-git-repo-check",
-        "--sandbox", "read-only",
-        "--model", model,
-        "--cd", root,
-        fullPrompt
-      ],
-      {
-        timeout: timeoutMs,
-        maxBuffer: 1024 * 1024 * 4,
-        cwd: root,
-        env: {
-          ...process.env,
-          PATH: `/opt/homebrew/bin:/opt/homebrew/sbin:/Users/coderAI/.local/bin:${process.env.PATH || ""}`
-        }
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error((stderr || error.message || "Codex board call failed.").toString().trim()));
-          return;
-        }
-        const content = stdout.toString().trim();
-        if (!content) {
-          reject(new Error((stderr || "Codex returned no board memo content.").toString().trim()));
-          return;
-        }
-        resolve({ model, content });
-      }
-    );
-  });
+  const result = await runWithInput(
+    codexPath,
+    ["exec", "--ephemeral", "--skip-git-repo-check", "--sandbox", "read-only", "--model", model, "--cd", root],
+    fullPrompt,
+    timeoutMs
+  );
+  if (!result.ok) throw new Error((result.stderr || result.error || "Codex board call failed.").toString().trim());
+  const content = result.stdout.toString().trim();
+  if (!content) throw new Error((result.stderr || "Codex returned no board memo content.").toString().trim());
+  return { model, content };
 }
 
 async function runBoardCouncil({ seed, research, memories }) {
