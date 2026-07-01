@@ -20,7 +20,8 @@ function renderAgents(active = [], states = {}) {
   $('#agents').innerHTML = AGENTS.map(a => {
     const cls = states[a.id] || (active.includes(a.id) ? 'active' : '');
     const st  = active.includes(a.id) ? 'active' : 'idle';
-    return `<div class="agent ${cls}">
+    const title = a.id === 'safe' ? 'Click to reset Safety Gate after human review' : '';
+    return `<div class="agent ${cls}" data-agent-id="${esc(a.id)}" title="${esc(title)}">
       <div class="av">${a.av}</div>
       <div><div class="nm">${esc(a.nm)}</div><div class="rl">${esc(a.rl)}</div></div>
       <div class="st">${st}</div>
@@ -489,8 +490,30 @@ $('#runBoard').addEventListener('click', () => {
 });
 
 $('#runVentureCycle').addEventListener('click', () => {
-  const p = $('#agentPrompt').value.trim() || 'Find one small B2B business to validate under $50 this week.';
+  const p = $('#agentPrompt').value.trim() || 'Synthetic data run: find one boring B2B operations workflow. Create a pre-pitch company card only. Use synthetic facts, internal analysis, and no live financial activity or public claims.';
   call('/api/venture-cycle', { seed: p }, $('#runVentureCycle'), 'Cycling…');
+});
+
+$('#agents').addEventListener('click', async (event) => {
+  const item = event.target.closest('[data-agent-id="safe"]');
+  if (!item) return;
+  item.classList.add('active');
+  $('#phase').innerHTML = `<span class="dotc pulse"></span>human resetting safety gate…`;
+  try {
+    const res = await fetch('/api/safety/reset', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ note: 'Human operator acknowledged blocked safety event from dashboard.' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Safety reset failed');
+    $('#phase').innerHTML = `<span class="dotc"></span>Safety Gate reset by human operator`;
+    await refresh();
+  } catch (err) {
+    $('#phase').innerHTML = `<span class="dotc" style="background:var(--rose)"></span>${esc(err.message)}`;
+  } finally {
+    item.classList.remove('active');
+  }
 });
 
 $('#runRedTeam').addEventListener('click', () => {

@@ -1051,6 +1051,46 @@ function parseVentureRecord(seed, research, boardDecision) {
   };
 }
 
+function prePitchFromResearch(seed, research, reason = "Board review unavailable; preserving research as pre-pitch.") {
+  const name = firstMatch(research, [
+    /^#+\s*([^\n]+)/m,
+    /^\*\*([^*\n]{6,80})\*\*\s*$/m,
+    /\*\*Business Idea:\*\*\s*([^\n]+)/i,
+    /\*\*Venture Name:\*\*\s*([^\n]+)/i
+  ], "Synthetic Operations Candidate").replace(/^#+\s*/, "").trim();
+  const market = firstMatch(research, [
+    /\*\*Customer:\*\*\s*([^\n]+)/i,
+    /Customer:\s*([^\n]+)/i,
+    /\*\*Market:\*\*\s*([^\n]+)/i
+  ], "Synthetic B2B operations buyer");
+  const pain = firstMatch(research, [/\*\*Pain:\*\*\s*([^\n]+)/i, /Pain:\s*([^\n]+)/i], "Research identified an operational pain.");
+  const offer = firstMatch(research, [/\*\*Offer:\*\*\s*([^\n]+)/i, /Offer:\s*([^\n]+)/i], "Offer needs board review.");
+  const kill = firstMatch(research, [
+    /\*\*Kill criteria[^:]*:\*\*\s*([^\n]+)/i,
+    /Kill criteria[^:]*:\s*([^\n]+)/i,
+    /Kill if\s+([^\n]+)/i
+  ], "Kill if no measurable validation signal appears before any spend or outreach.");
+  return {
+    id: `${slugify(name)}-${Date.now().toString(36)}`,
+    name: name.slice(0, 120),
+    market: market.slice(0, 120),
+    ask: 0,
+    requested_budget: 0,
+    status: "pre-pitch",
+    score: 58,
+    spend: 0,
+    revenue: 0,
+    decision: "Pre-Pitch",
+    reason: String(reason).slice(0, 260),
+    evidence: [pain, offer, "No capital gate, public outreach, or payment action has been approved."].map((item) => String(item).slice(0, 180)),
+    kill: kill.slice(0, 220),
+    createdAt: new Date().toISOString(),
+    source: "live-venture-cycle",
+    boardDecision: null,
+    boardReviewedAt: null
+  };
+}
+
 function yamlScalar(value) {
   return JSON.stringify(String(value ?? ""));
 }
@@ -2592,7 +2632,7 @@ async function ventureCycle(req, res) {
       return;
     }
     const body = await readJson(req);
-    const seed = String(body.seed || "Find one small B2B business an AI company could validate for under $50 this week.").trim();
+    const seed = String(body.seed || "Synthetic data run: find one boring B2B operations workflow. Create a pre-pitch company card only. Use synthetic facts, internal analysis, and no live financial activity or public claims.").trim();
     await applyHostRails("input", seed, { maxLength: 3000 });
     await enforceSafety(seed, { action: "venture-cycle-seed", public: false, money: /stripe|payment|spend|charge|buy|purchase/i.test(seed) });
     await syncHermesContext("before-venture-cycle");
@@ -2718,19 +2758,29 @@ async function ventureCycle(req, res) {
       try {
         boardDecision = await callHermes(boardPrompt, Number(process.env.VENTURE_HERMES_TIMEOUT_MS || 18000));
       } catch (error) {
-        const message = `Hermes board unavailable; no venture card created. ${String(error.message || error).slice(0, 240)}`;
+        const message = `Hermes board unavailable; preserving research as a Pre-Pitch card. ${String(error.message || error).slice(0, 180)}`;
+        const storedVenture = prePitchFromResearch(seed, research, message);
+        upsertVenture(storedVenture);
         transcript.push({ role: "warn", content: message, at: new Date().toISOString() });
+        transcript.push({ role: "archivist", content: `Pre-Pitch card created for ${storedVenture.name}. Board/CFO/human gates remain locked until explicit review.`, at: new Date().toISOString() });
         await writeQdrantPoint("exit_capital_audit_events", message, {
           agent: "board",
-          action: "venture-cycle-aborted",
+          action: "venture-cycle-prepitch-hold",
           seed,
+          venture_name: storedVenture.name,
           money_movement: false
         });
-        await logEvent("venture_cycle_aborted", { seed, stage: "board", error: String(error.message || error) });
+        await writeQdrantPoint("exit_capital_ventures", `${seed}\n\n${research}`, {
+          agent: "archivist",
+          cycle_seed: seed,
+          venture_name: storedVenture.name,
+          status: "pre-pitch"
+        });
+        await logEvent("venture_cycle_prepitch_hold", { seed, venture: storedVenture, stage: "board", error: String(error.message || error) });
         while (transcript.length > 12) transcript.shift();
         await saveOperatingState();
-        res.writeHead(503, { "content-type": mime[".json"] });
-        res.end(JSON.stringify({ error: message, seed, ventures, transcript }));
+        res.writeHead(200, { "content-type": mime[".json"] });
+        res.end(JSON.stringify({ ok: true, prePitch: true, message, seed, venture: storedVenture, ventures, transcript, qdrant: await qdrantStatus() }));
         return;
       }
     }
@@ -3457,6 +3507,12 @@ async function stateApi(res) {
     pubkey: pubkeyB64,
     humanGate,
     capitalPolicy: capitalPolicyState(),
+    safety: {
+      steward: safetyConfig.steward,
+      mode: safetyConfig.mode,
+      targetModel: safetyConfig.targetModel,
+      recent: safetyEvents.slice(0, 10)
+    },
     transcript: transcript.slice(-6),
     qdrant,
     updatedAt: new Date().toISOString()
@@ -3555,6 +3611,44 @@ async function cfoReview(req, res) {
   }
 }
 
+async function safetyResetApi(req, res) {
+  try {
+    const body = await readJson(req).catch(() => ({}));
+    const note = String(body.note || "Human operator acknowledged and reset the Safety Gate indicator.").slice(0, 300);
+    const cleared = safetyEvents.filter((event) => event.blocked || event.action === "blocked").length;
+    safetyEvents.splice(0, safetyEvents.length);
+    transcript.push({
+      role: "human",
+      content: `Safety Gate reset by human operator. Cleared ${cleared} blocked alert${cleared === 1 ? "" : "s"}. ${note}`,
+      at: new Date().toISOString()
+    });
+    while (transcript.length > 12) transcript.shift();
+    await writeQdrantPoint("exit_capital_audit_events", `Safety Gate reset by human operator. ${note}`, {
+      agent: "human-safety-gate",
+      action: "safety_reset",
+      cleared_blocked_events: cleared,
+      money_movement: false,
+      public_launch: false
+    });
+    await saveOperatingState();
+    res.writeHead(200, { "content-type": mime[".json"] });
+    res.end(JSON.stringify({
+      ok: true,
+      cleared,
+      safety: {
+        steward: safetyConfig.steward,
+        mode: safetyConfig.mode,
+        targetModel: safetyConfig.targetModel,
+        recent: safetyEvents.slice(0, 10)
+      },
+      transcript
+    }));
+  } catch (error) {
+    res.writeHead(500, { "content-type": mime[".json"] });
+    res.end(JSON.stringify({ error: error.message, safety: { recent: safetyEvents.slice(0, 10) } }));
+  }
+}
+
 async function spinoutStartApi(req, res) {
   try {
     const body = await readJson(req);
@@ -3633,6 +3727,7 @@ async function staticFile(req, res) {
   if (url.pathname === "/api/human-gate" && req.method === "POST") return humanGateApi(req, res);
   if (url.pathname === "/api/research" && req.method === "POST") return researchIntern(req, res);
   if (url.pathname === "/api/cfo-review" && req.method === "POST") return cfoReview(req, res);
+  if (url.pathname === "/api/safety/reset" && req.method === "POST") return safetyResetApi(req, res);
   if (url.pathname === "/api/spinout/start" && req.method === "POST") return spinoutStartApi(req, res);
   if (url.pathname === "/api/stripe/propose" && req.method === "POST") return stripeProposal(req, res);
   if (url.pathname === "/api/stripe/action" && req.method === "POST") return stripeAction(req, res);
