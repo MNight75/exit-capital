@@ -119,7 +119,7 @@ Verification snapshot:
 - Stripe remains dry-run/approval-gated; no real spend/provisioning should be claimed.
 - Non-money rails approved by Mac admin via Codex on 2026-06-30:
   - Qdrant memory writes for board decisions, venture state, audit events, and research notes.
-  - Owl Alpha/OpenRouter research intern calls.
+  - OpenRouter research model research intern calls.
   - NemoClaw/OpenShell Discord bridge messaging.
   - Stripe skills for proposals, test plans, and dry-run provisioning flows.
 - Real Stripe spend, live provisioning, or credentialed money movement remains unapproved and locked.
@@ -166,7 +166,7 @@ Live:
 - Stripe spend proposal event in GUI transcript
 - Dedicated Qdrant instance and collections
 - GUI archive endpoint writes board memory to Qdrant
-- OpenRouter/Owl Alpha research intern endpoint and GUI button
+- OpenRouter research model research intern endpoint and GUI button
 
 Staged / dry-run:
 
@@ -185,7 +185,7 @@ Agents:
 - CFO Agent: budget caps, margin checks, kill/scale calls.
 - Red Team Agent: blocks unsafe claims, legal/IP issues, data leaks, public action risk.
 - Operator Agent: executes approved work inside NemoClaw/OpenShell.
-- Intern Agent: performs external market research using Owl Alpha over OpenRouter.
+- Intern Agent: performs external market research using OpenRouter research model over OpenRouter.
 - Archivist Agent: writes company state, board decisions, ledger events, and proof artifacts into Qdrant.
 
 Memory:
@@ -218,7 +218,7 @@ Do these in order:
 2. Add agent role selector and message routing in the GUI.
 3. Add Intern Agent route:
    - provider: OpenRouter
-   - model: Owl Alpha
+   - model: OpenRouter research model
    - purpose: outbound market/research analysis
    - no posting or purchases
 4. Add Archivist Agent route:
@@ -342,12 +342,12 @@ curl -sf http://127.0.0.1:4177/api/boardroom
 - Official remote Hermes skill install for Stripe hung; local skill installation succeeded.
 - Stripe credentials are not configured.
 - Qdrant memory is read/write. Writes go to research, board decisions, venture state, and audit collections. Reads are host-side only and pass through NeMo Guardrails before reaching Hermes.
-- Intern/OpenRouter/Owl Alpha is wired through `/api/research`.
+- Intern/OpenRouter research model is wired through `/api/research`.
 - OpenRouter credential check: `OPENROUTER_API_KEY` is present in `/Users/coderAI/nemo-boardroom-hackathon/app/.env.local`.
 - Discord channel messaging is wired through NemoClaw/OpenShell for the Hermes sandbox. General intra-agent board messaging is still staged in the dashboard.
 - Native Hermes GUI is not separately available for this NemoHermes sandbox; use Exit Capital GUI as the human console.
 - 2026-06-30 repair: The outside host Hermes gateway was stopped so only the NemoClaw `exit-capital-hermes` responder remains on the dashboard path. Do not restart host `.hermes/hermes-agent` for this demo.
-- 2026-06-30 implementation: The dashboard now has a real `Run Venture Cycle` control. It calls Owl Alpha through OpenRouter for new business research, sends the result to Hermes/Nemotron for a board decision, then archives research, decision, venture state, and audit event into Qdrant. This is orchestrated multi-agent behavior, not a free-running chat swarm.
+- 2026-06-30 implementation: The dashboard now has a real `Run Venture Cycle` control. It calls OpenRouter research model through OpenRouter for new business research, sends the result to Hermes/Nemotron for a board decision, then archives research, decision, venture state, and audit event into Qdrant. This is orchestrated multi-agent behavior, not a free-running chat swarm.
 - 2026-06-30 product hardening: Venture cycles now recall relevant Qdrant memory before board review, require Hermes to return structured board state, update the live operating portfolio, append a governed ledger event, persist state in `data/operating-state.json`, and append an audit event log in `data/events.jsonl`.
 - 2026-06-30 Discord home-channel fix: Hermes' `/sethome` persistence can be unreliable because the warning checks `DISCORD_HOME_CHANNEL` in the environment. Patched NemoClaw Hermes config generation so rebuilt sandboxes bake `DISCORD_HOME_CHANNEL=1521286176013815818` and `DISCORD_HOME_CHANNEL_NAME=nemohermes` into `/sandbox/.hermes/.env`; `discord.free_response_channels` is also set to `1521286176013815818`. Rebuilt `exit-capital-hermes` and verified the generated sandbox `.env` contains the home channel.
 - 2026-06-30 idea-vault hardening: Added an Obsidian-style Markdown vault at `data/obsidian-vault/Business Ideas`. Existing portfolio ideas are seeded as Markdown notes. Each new venture cycle checks the vault before research, asks for a new idea or repair/pivot rather than repeating old ideas, writes one Markdown business record with frontmatter status, and still writes Qdrant research/board/venture/audit points. Archivist is explicitly a deterministic non-LLM worker unless a future separate Archivist LLM is added.
@@ -384,7 +384,7 @@ MODELS = {
 
 What is now real:
 
-- Research Intern is a real Owl Alpha/OpenRouter call.
+- Research Intern is a real OpenRouter research model call.
 - Board is a real Hermes/Nemotron call with structured decision output.
 - Red Team Council is a real five-model OpenRouter quorum endpoint.
 - Archivist is a deterministic persistence worker writing Qdrant, event log, and Markdown vault.

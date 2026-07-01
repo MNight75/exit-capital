@@ -3,7 +3,7 @@
 Current strengths:
 
 - Hermes/Nemotron is project-aware.
-- Research Intern works through Owl Alpha/OpenRouter.
+- Research Intern works through OpenRouter research model.
 - Qdrant writes work.
 - Markdown idea vault works.
 - Discord HOME is pinned.

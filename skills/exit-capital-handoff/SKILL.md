@@ -5,12 +5,12 @@ description: Use for fast routine operation, explanation, repair triage, or demo
 
 # Exit Capital Handoff
 
-Use this skill whenever the user asks about Exit Capital, the hackathon submission, NemoClaw/OpenShell, Hermes access, Discord bridge status, Qdrant memory, Stripe skills, Owl Alpha research, or the demo script.
+Use this skill whenever the user asks about Exit Capital, the hackathon submission, NemoClaw/OpenShell, Hermes access, Discord bridge status, Qdrant memory, Stripe skills, Researcher, or the demo script.
 
 Read this file for normal Discord/GUI operation:
 
 - `SUMMARY.md` - fast operational state, approvals, known pitfalls, and demo next steps.
-- `AGENT_RESEARCH_INTERN.md` - Owl Alpha research role and output contract.
+- `AGENT_RESEARCH_INTERN.md` - Researcher role and output contract.
 - `AGENT_BOARD.md` - Hermes/Nemotron board role and structured decision contract.
 - `AGENT_ARCHIVIST.md` - Qdrant memory and audit role.
 - `AGENT_OPERATOR.md` - human-facing operating console and execution boundaries.
@@ -29,7 +29,7 @@ Important operating rules:
 
 - Treat `exit-capital-hermes` as the active sandbox.
 - Keep Discord on the NemoClaw/OpenShell bridge; do not use a host-side Discord sender.
-- Qdrant memory writes, Owl Alpha research, Discord bridge messaging, and Stripe dry-run skill use are approved non-money rails.
+- Qdrant memory writes, Researcher, Discord bridge messaging, and Stripe dry-run skill use are approved non-money rails.
 - Real Stripe spend, live provisioning, or credentialed money movement remains locked unless the user explicitly approves money movement.
 - Exit Capital is multi-agentic by governed orchestration: Research Intern -> Board -> Archivist -> Operator console. It is not an uncontrolled free-running swarm.
 - Final human approval is required before fund/scale execution unless the operator explicitly enables bypass; bypass is logged.

@@ -10,7 +10,7 @@ Last checked: 2026-06-30
 - Model route: `nemotron-3-ultra:cloud`
 - Discord: NemoClaw/OpenShell bridge attached
 - Qdrant: 4/4 collections online; research, board decision, venture, and audit writes verified
-- OpenRouter/Owl Alpha: configured and responding
+- OpenRouter research model: configured and responding
 - Stripe: CLI + Link CLI present, skills installed, dry-run approved
 - Real money: locked
 - GUI controls verified:
@@ -60,7 +60,7 @@ Use the dashboard Agent Cockpit instead. The Hermes API is live and uses the sam
 
 ## If Research Is Slow
 
-Do not wait silently. Show the existing intern result in the transcript or say: "The intern is running Owl Alpha research in the background; the board can continue while evidence arrives."
+Do not wait silently. Show the existing intern result in the transcript or say: "The intern is running Researcher in the background; the board can continue while evidence arrives."
 
 ## Known Hardening
 

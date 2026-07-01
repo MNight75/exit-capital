@@ -65,13 +65,13 @@ See [`docs/PIPELINE_CRITERIA.md`](docs/PIPELINE_CRITERIA.md) for the full lane c
 - Nemotron 3 Ultra route through Ollama.
 - Discord policy/provider attached through NemoClaw/OpenShell, not a host-side sender.
 - Qdrant memory writes from the dashboard.
-- Venture cycle orchestration that checks the Markdown idea vault, asks Owl Alpha for a business idea or repair/pivot, recalls prior Qdrant memory, asks Hermes/Nemotron for a structured board decision, updates the operating portfolio and ledger, then archives research, decision, venture state, and audit event to Qdrant and Markdown.
+- Venture cycle orchestration that checks the Markdown idea vault, asks OpenRouter research model for a business idea or repair/pivot, recalls prior Qdrant memory, asks Hermes/Nemotron for a structured board decision, updates the operating portfolio and ledger, then archives research, decision, venture state, and audit event to Qdrant and Markdown.
 - Stripe proposal workflow and installed Stripe skills.
 - Exit Capital-specific Hermes identity baked into `SOUL.md`.
 
 ## Terms
 
-- Research Intern: Owl Alpha/OpenRouter LLM that finds and frames ideas.
+- Research Intern: OpenRouter research model LLM that finds and frames ideas.
 - Board: Hermes/Nemotron decision layer that turns a research memo into a signed board artifact.
 - Red Team Council: adversarial review that attacks the Board's assumptions before capital is allowed.
 - CFO: capital gate that appears only after research, board, red-team, and board-final artifacts exist.

@@ -19,7 +19,7 @@ Use this summary for normal Discord and GUI replies. Open the larger markdown fi
 ## Approved Non-Money Rails
 
 - Qdrant memory writes are approved.
-- Owl Alpha/OpenRouter research is approved.
+- OpenRouter research model research is approved.
 - NemoClaw/OpenShell Discord bridge messaging is approved.
 - Discord home delivery is pinned with `DISCORD_HOME_CHANNEL=1521286176013815818`.
 - Stripe skills are approved for proposals, test plans, and dry-run flows.
@@ -33,7 +33,7 @@ The hook: the AI does not escape containment by breaking rules. It earns more bu
 
 ## Agent Roles
 
-- Research Intern: Owl Alpha/OpenRouter, finds and frames new boring B2B business ideas.
+- Research Intern: OpenRouter research model, finds and frames new boring B2B business ideas.
 - Board: Hermes/Nemotron, evaluates research through Founder, CFO, Red Team, Operator, and Auditor roles.
 - Red Team Council: five OpenRouter models in synchronous parallel: Claude Opus 4.8, GPT-5.5, MiniMax M3, GLM 5.2, Kimi K2.7 Code.
 - CFO: currently a Board seat, owns treasury, caps, runway, margin, refund risk, and Stripe gating.
@@ -47,7 +47,7 @@ The system is multi-agentic by governed orchestration: Research Intern -> Board 
 
 ## Live Operating Loop
 
-- `Run Venture Cycle` calls Owl Alpha for research.
+- `Run Venture Cycle` calls OpenRouter research model for research.
 - It first checks the Markdown idea vault so old ideas are not blindly re-researched.
 - The board recalls relevant Qdrant memories.
 - Hermes/Nemotron returns structured board state.

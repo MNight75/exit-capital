@@ -5,7 +5,7 @@ Purpose: find and frame new business ideas for Exit Capital.
 Runtime:
 
 - Provider: OpenRouter
-- Model: Owl Alpha
+- Model: OpenRouter research model
 - Dashboard path: `/api/research` and `/api/venture-cycle`
 
 Responsibilities:
