@@ -1295,6 +1295,19 @@ function treasuryBalance() {
   return Number(ledger.at(-1)?.balance ?? 50);
 }
 
+function cleanLedgerForCurrentVentures(rows) {
+  const liveNames = new Set(ventures.map((venture) => venture.name));
+  const cleaned = (rows || [])
+    .filter((row) => row?.type === "Treasury" && row?.item === "Budget opened" || liveNames.has(row?.item))
+    .filter((row) => !/^Exit Capital\b/i.test(row.item || ""))
+    .filter((row) => !(row.item || "").startsWith("PalletRecon"))
+    .filter((row) => !isEmergencyDemoLedgerRow(row));
+  if (!cleaned.some((row) => row.type === "Treasury" && row.item === "Budget opened")) {
+    cleaned.unshift({ time: "00:00", type: "Treasury", item: "Budget opened", amount: 50, balance: 50 });
+  }
+  return normalizeLedgerRows(cleaned);
+}
+
 function requiresCapital(venture) {
   return ["fund", "scale"].includes(String(venture.status || "").toLowerCase());
 }
@@ -1540,6 +1553,77 @@ function replaceVenture(updated) {
   return updated;
 }
 
+function ensureFixtureDecisionRecord(venture) {
+  if (!venture || venture.source !== "manual-demo-seed" || !venture.humanApproved || decisionRecords.has(venture.id)) return false;
+  const ts = venture.createdAt || new Date().toISOString();
+  const steps = [
+    {
+      n: 1,
+      kind: "research_fixture",
+      actor: "researcher",
+      summary: "Seeded research memo for video walkthrough",
+      detail: `${venture.market || ""} ${venture.reason || ""}`.trim().slice(0, 300),
+      result: "pass",
+      ts
+    },
+    {
+      n: 2,
+      kind: "board_fixture",
+      actor: "board",
+      summary: "Board artifact fixture: approved for governed walkthrough",
+      detail: (venture.reason || "Seeded board pitch artifact.").slice(0, 300),
+      result: "pass",
+      ts
+    },
+    {
+      n: 3,
+      kind: "red_team_fixture",
+      actor: "red-team-council",
+      summary: "Red Team artifact fixture: risks acknowledged",
+      detail: "Primary risks: demand validation, crew adoption, and proof before paid outreach. Proceed only with human-gated test rail.",
+      result: "pass",
+      ts
+    },
+    {
+      n: 4,
+      kind: "capital_gate_fixture",
+      actor: "cfo",
+      summary: `CFO fixture: ${venture.cfoEnvelope?.verdict || "approved"} · $${venture.cfoEnvelope?.approved_budget_usd ?? venture.ask ?? 0} cap`,
+      detail: (venture.cfoEnvelope?.reason || "Seeded CFO envelope for video walkthrough.").slice(0, 300),
+      result: "pass",
+      ts
+    },
+    {
+      n: 5,
+      kind: "human_gate_fixture",
+      actor: "human-operator",
+      summary: "Human Gate fixture: approved for demo spinout",
+      detail: venture.approvalId || "video-demo-approval",
+      result: "pass",
+      ts
+    },
+    {
+      n: 6,
+      kind: "spinout_fixture",
+      actor: "spinout-operator",
+      summary: "Spinout fixture: operating surface prepared",
+      detail: "Website/status surface and Stripe test-rail plan are for video walkthrough; live public launch remains approval-gated.",
+      result: "pass",
+      ts
+    }
+  ];
+  const record = signDecision({
+    id: `rec-${venture.id}`,
+    ventureId: venture.id,
+    steps,
+    outcome: "video-fixture-approved-spinout",
+    livemode: false,
+    ts
+  });
+  decisionRecords.set(venture.id, record);
+  return true;
+}
+
 function capitalPolicyState() {
   const available = Math.max(0, treasuryBalance());
   return {
@@ -1622,15 +1706,8 @@ async function loadOperatingState() {
       ventures.splice(0, ventures.length, ...dedupedVentures.slice(0, 12));
     }
     if (Array.isArray(state.ledger) && state.ledger.length) {
-      const cleanedLedger = state.ledger
-        .filter((row) => !/^Exit Capital\b/i.test(row.item || ""))
-        .filter((row) => !(row.item || "").startsWith("PalletRecon"))
-        .filter((row) => !isEmergencyDemoLedgerRow(row));
-      if (!cleanedLedger.some((row) => row.type === "Treasury" && row.item === "Budget opened")) {
-        cleanedLedger.unshift({ time: "00:00", type: "Treasury", item: "Budget opened", amount: 50, balance: 50 });
-      }
-      const normalizedLedger = normalizeLedgerRows(cleanedLedger);
-      changed = changed || cleanedLedger.length !== state.ledger.length || normalizedLedger.at(-1)?.balance !== state.ledger.at(-1)?.balance;
+      const normalizedLedger = cleanLedgerForCurrentVentures(state.ledger);
+      changed = changed || normalizedLedger.length !== state.ledger.length || normalizedLedger.at(-1)?.balance !== state.ledger.at(-1)?.balance;
       ledger.splice(0, ledger.length, ...normalizedLedger);
     }
     if (Array.isArray(state.transcript) && state.transcript.length) {
@@ -1661,6 +1738,9 @@ async function loadOperatingState() {
           changed = true;
         }
       }
+    }
+    for (const venture of ventures) {
+      if (ensureFixtureDecisionRecord(venture)) changed = true;
     }
     syncSpinoutsFromVentures();
     if (changed) await saveOperatingState();
@@ -2398,7 +2478,11 @@ async function api(res) {
   syncSpinoutsFromVentures();
   const visibleVentures = dedupeVentures(ventures)
     .filter((venture) => !isSystemHoldVenture(venture))
-    .map((venture) => needsBoardPitch(venture) ? normalizeBoardPitchHold(venture) : venture);
+    .map((venture) => needsBoardPitch(venture) ? normalizeBoardPitchHold(venture) : venture)
+    .map((venture) => ({
+      ...venture,
+      staged: venture.source !== "live-venture-cycle" ? true : undefined
+    }));
   const totals = visibleVentures.reduce((acc, v) => {
     acc.spend += v.spend;
     acc.revenue += v.revenue;
