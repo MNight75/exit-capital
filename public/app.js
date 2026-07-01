@@ -503,7 +503,7 @@ $('#runBoard').addEventListener('click', () => {
 
 $('#runVentureCycle').addEventListener('click', () => {
   const p = $('#agentPrompt').value.trim() || 'Synthetic data run: find one boring B2B operations workflow. Create a pre-pitch company card only. Use synthetic facts, internal analysis, and no live financial activity or public claims.';
-  call('/api/venture-cycle', { seed: p }, $('#runVentureCycle'), 'Cycling…');
+  call('/api/venture-cycle', { seed: p, mode: 'prepitch' }, $('#runVentureCycle'), 'Cycling…');
 });
 
 $('#agents').addEventListener('click', async (event) => {

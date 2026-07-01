@@ -2633,6 +2633,7 @@ async function ventureCycle(req, res) {
     }
     const body = await readJson(req);
     const seed = String(body.seed || "Synthetic data run: find one boring B2B operations workflow. Create a pre-pitch company card only. Use synthetic facts, internal analysis, and no live financial activity or public claims.").trim();
+    const prePitchOnly = body.mode === "prepitch" || /pre-?pitch company card only/i.test(seed);
     await applyHostRails("input", seed, { maxLength: 3000 });
     await enforceSafety(seed, { action: "venture-cycle-seed", public: false, money: /stripe|payment|spend|charge|buy|purchase/i.test(seed) });
     await syncHermesContext("before-venture-cycle");
@@ -2690,6 +2691,35 @@ async function ventureCycle(req, res) {
       agent: "research-intern",
       cycle_seed: seed
     });
+    if (prePitchOnly) {
+      const storedVenture = prePitchFromResearch(seed, research, "Research complete. Held at Pre-Pitch until explicit board review.");
+      upsertVenture(storedVenture);
+      transcript.push({
+        role: "archivist",
+        content: `Pre-Pitch card created for ${storedVenture.name}. Board, CFO, capital, and human gates remain locked until explicit review.`,
+        at: new Date().toISOString()
+      });
+      await writeQdrantPoint("exit_capital_ventures", `${seed}\n\n${research}`, {
+        agent: "archivist",
+        cycle_seed: seed,
+        venture_name: storedVenture.name,
+        status: "pre-pitch"
+      });
+      await writeQdrantPoint("exit_capital_audit_events", `Pre-Pitch candidate created without board execution: ${storedVenture.name}`, {
+        agent: "venture-cycle",
+        action: "prepitch-created",
+        seed,
+        venture_name: storedVenture.name,
+        money_movement: false,
+        public_launch: false
+      });
+      await logEvent("venture_cycle_prepitch_created", { seed, venture: storedVenture });
+      while (transcript.length > 12) transcript.shift();
+      await saveOperatingState();
+      res.writeHead(200, { "content-type": mime[".json"] });
+      res.end(JSON.stringify({ ok: true, prePitch: true, message: "Pre-Pitch card created. Board review not run.", seed, venture: storedVenture, ventures, transcript, qdrant: await qdrantStatus() }));
+      return;
+    }
     const memories = await recallOperatingMemory(`${seed}\n${research}`);
     const boardCouncil = researchFallback
       ? {
