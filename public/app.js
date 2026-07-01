@@ -471,6 +471,7 @@ async function call(endpoint, body, btn, label) {
   const orig = btn.textContent;
   btn.disabled = true;
   btn.textContent = label;
+  btn.classList.add('running');
   currentActiveAgents = activeAgentsForEndpoint(endpoint);
   renderAgents(currentActiveAgents);
   try {
@@ -489,6 +490,7 @@ async function call(endpoint, body, btn, label) {
   } finally {
     btn.disabled = false;
     btn.textContent = orig;
+    btn.classList.remove('running');
     currentActiveAgents = [];
     await refresh();
   }

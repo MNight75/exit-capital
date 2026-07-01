@@ -582,13 +582,15 @@ textarea:focus {
   background: rgba(57,214,224,.08);
   box-shadow: 0 0 12px -4px rgba(57,214,224,.20);
 }
-.cmd.primary {
+.cmd.primary,
+.cmd.running {
   color: #020d08;
   background: var(--emerald);
   border-color: var(--emerald);
   box-shadow: 0 0 16px -6px rgba(55,211,153,.50);
 }
-.cmd.primary:hover:not([disabled]) { background: #44eeaa; }
+.cmd.primary:hover:not([disabled]),
+.cmd.running:hover:not([disabled]) { background: #44eeaa; }
 .cmd[disabled] { cursor: wait; opacity: .45; }
 
 /* ── INBOX BAR ──────────────────────────────────────────────── */
