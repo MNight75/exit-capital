@@ -7,7 +7,7 @@ const esc = s => String(s ?? '')
 /* ── AGENT COUNCIL ─────────────────────────────────────────── */
 const AGENTS = [
   { id:'board', av:'◈', nm:'Board',            rl:'Hermes · Nemotron orchestrator' },
-  { id:'owl',   av:'◑', nm:'Archivist',          rl:'Research · Claude Haiku' },
+  { id:'owl',   av:'◑', nm:'Researcher',        rl:'Owl Research · Claude Haiku' },
   { id:'red',   av:'⚔', nm:'Red-Team Council', rl:'5-model adversary' },
   { id:'safe',  av:'⛨', nm:'Safety Gate',      rl:'Nemotron 3.5 Content Safety' },
   { id:'cfo',   av:'$', nm:'CFO',               rl:'treasury · kill-criteria' },
