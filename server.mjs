@@ -1357,7 +1357,19 @@ function applyCfoCapitalGate(venture, action = "venture allocation") {
   if (!requiresCapital(venture)) {
     return gated;
   }
-  if (envelope.verdict !== "approved" || envelope.approved_budget_usd <= 0) {
+  if (envelope.verdict === "approved" && envelope.approved_budget_usd <= 0) {
+    return normalizePrePitchCapitalHold({
+      ...gated,
+      ask: 0,
+      spend: 0,
+      status: "pre-pitch",
+      decision: "Pre-Pitch Hold",
+      score: Math.min(Number(venture.score || 50), 55),
+      reason: `${envelope.reason} ${venture.reason || ""}`.trim().slice(0, 260),
+      evidence: [...(venture.evidence || []).slice(0, 2), "CFO released no capital; validation remains pre-pitch."].slice(0, 3)
+    });
+  }
+  if (envelope.verdict !== "approved") {
     return {
       ...gated,
       ask: 0,
@@ -1376,6 +1388,34 @@ function applyCfoCapitalGate(venture, action = "venture allocation") {
     reason: envelope.approved_budget_usd < requested
       ? `${venture.reason || ""} CFO reduced requested spend from $${requested} to $${envelope.approved_budget_usd}.`.trim().slice(0, 260)
       : venture.reason
+  };
+}
+
+function isZeroDollarCapitalHold(venture) {
+  const envelope = venture?.cfoEnvelope || {};
+  return String(venture?.decision || "") === "CFO Rejected"
+    && String(envelope.verdict || "") === "approved"
+    && Number(envelope.approved_budget_usd || 0) <= 0
+    && Number(envelope.requested_usd || 0) <= 0;
+}
+
+function normalizePrePitchCapitalHold(venture) {
+  return {
+    ...venture,
+    ask: 0,
+    spend: 0,
+    status: "pre-pitch",
+    decision: "Pre-Pitch Hold",
+    approved_budget: 0,
+    reason: String(venture?.reason || "")
+      .replace(/^CFO cap approved at \$0; treasury available \$0; requested \$0\.\s*/i, "CFO set a $0 no-spend envelope; ")
+      .replace(/\bCFO capital gate blocked spend\.\s*/i, "")
+      .trim()
+      .slice(0, 260) || "CFO set a $0 no-spend envelope. Keep this in pre-pitch until treasury or human approval is available.",
+    evidence: [
+      ...(venture?.evidence || []).filter((item) => !/CFO capital gate blocked spend/i.test(String(item))).slice(0, 2),
+      "No capital released; hold for pre-pitch validation."
+    ].slice(0, 3)
   };
 }
 
@@ -1443,7 +1483,7 @@ async function loadOperatingState() {
         if (/^Exit Capital\b/i.test(venture.name || "")) return false;
         if (venture.status === "fund" && Number(venture.ask || 0) === 0) return false;
         return true;
-      });
+      }).map((venture) => isZeroDollarCapitalHold(venture) ? normalizePrePitchCapitalHold(venture) : venture);
       const dedupedVentures = dedupeVentures(cleanedVentures);
       changed = cleanedVentures.length !== state.ventures.length || dedupedVentures.length !== cleanedVentures.length;
       ventures.splice(0, ventures.length, ...dedupedVentures.slice(0, 12));
