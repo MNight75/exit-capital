@@ -49,6 +49,7 @@ function toLane(v) {
   if (v.status === 'scale')  return 'Live';
   if (v.status === 'reject' || v.status === 'kill') return 'Killed';
   if (v.status === 'red-team') return 'Red-Team';
+  if (v.status === 'capital-gate') return 'Capital Gate';
   if (v.status === 'pre-pitch') return 'Pre-Pitch';
   if (v.status === 'board-pitch' || v.status === 'needs-board-pitch') return 'Board Pitch';
   if ((v.status === 'fund' || v.status === 'pending') && v.cfoEnvelope) return 'Capital Gate';

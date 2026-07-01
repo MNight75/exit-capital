@@ -3091,8 +3091,11 @@ async function redTeamCouncil(req, res) {
         return { model, ok: false, error: error.name === "AbortError" ? "timed out" : error.message };
       }
     }));
-    const passed = results.filter((result) => result.ok);
+    const majorFlawPattern = /\b(no[- ]?go|do not proceed|fatal blocker|fatal flaw|kill\b|reject\b|unsafe|illegal|non[- ]?viable|major flaw|stop before|should not advance)\b/i;
+    const passed = results.filter((result) => result.ok && !majorFlawPattern.test(result.content || ""));
     const failed = results.filter((result) => !result.ok);
+    const majorFlaws = results.filter((result) => result.ok && majorFlawPattern.test(result.content || ""));
+    const redTeamVenture = ventures.find((venture) => venture.status === "red-team");
     const councilReport = [
       "# Red Team Council",
       "",
@@ -3109,6 +3112,29 @@ async function redTeamCouncil(req, res) {
       content: `Red-team council complete: ${passed.length}/${results.length} models responded.\n\n${councilReport.slice(0, 4000)}`,
       at: new Date().toISOString()
     });
+    if (redTeamVenture) {
+      redTeamVenture.redTeamReport = councilReport.slice(0, 8000);
+      redTeamVenture.redTeamReviewedAt = new Date().toISOString();
+      redTeamVenture.redTeamPassed = passed.length >= 3 && majorFlaws.length === 0;
+      if (redTeamVenture.redTeamPassed) {
+        redTeamVenture.status = "capital-gate";
+        redTeamVenture.decision = "Red-Team Passed";
+        redTeamVenture.reason = `Red-Team passed with ${passed.length}/${results.length} green-light seats and no major flaws detected. CFO and Human Gate still required before any spend, outreach, public launch, or Stripe action.`;
+        redTeamVenture.evidence = [
+          ...(redTeamVenture.evidence || []).slice(0, 2),
+          `Red-Team passed ${passed.length}/${results.length}; failures and model errors recorded for audit.`
+        ].slice(0, 3);
+        transcript.push({
+          role: "red-team",
+          content: `${redTeamVenture.name} advanced to Capital Gate. CFO review is now the next required step.`,
+          at: new Date().toISOString()
+        });
+      } else {
+        redTeamVenture.reason = majorFlaws.length
+          ? `Red-Team hold: ${majorFlaws.length} responding seat${majorFlaws.length === 1 ? "" : "s"} found a major flaw. Repair before capital review.`
+          : `Red-Team hold: only ${passed.length}/${results.length} green-light seats responded. Repair before capital review.`;
+      }
+    }
     while (transcript.length > 12) transcript.shift();
 
     await writeQdrantPoint("exit_capital_audit_events", councilReport, {
@@ -3116,6 +3142,7 @@ async function redTeamCouncil(req, res) {
       models: redTeamModels,
       passed: passed.length,
       failed: failed.length,
+      major_flaws: majorFlaws.length,
       subject: subject.slice(0, 500)
     });
     await busMessage("red-team-council", "board", "red_team_report", {
@@ -3124,7 +3151,7 @@ async function redTeamCouncil(req, res) {
       passed: passed.length,
       failed: failed.length
     });
-    await logEvent("red_team_council", { subject, passed: passed.length, failed: failed.length, models: redTeamModels });
+    await logEvent("red_team_council", { subject, passed: passed.length, failed: failed.length, majorFlaws: majorFlaws.length, models: redTeamModels, venture: redTeamVenture || null });
     await saveOperatingState();
 
     res.writeHead(200, { "content-type": mime[".json"] });
@@ -3132,6 +3159,9 @@ async function redTeamCouncil(req, res) {
       ok: true,
       models: redTeamModels,
       results,
+      passed: passed.length,
+      majorFlaws: majorFlaws.length,
+      venture: redTeamVenture || null,
       qdrant: await qdrantStatus(),
       transcript
     }));
