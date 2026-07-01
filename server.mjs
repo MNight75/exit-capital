@@ -3345,24 +3345,54 @@ async function archiveBoard(req, res) {
     return;
   }
   const body = await readJson(req);
+  const ventureId = String(body.venture_id || "").trim();
+  const ventureIndex = ventureId ? ventures.findIndex((venture) => venture.id === ventureId) : -1;
+  const venture = ventureIndex >= 0 ? ventures[ventureIndex] : null;
+  const remove = !!body.remove && !!venture;
   const text = String(body.text || transcript.at(-1)?.content || "Exit Capital board archive checkpoint").trim();
   const collection = qdrantConfig.collections.includes(body.collection)
     ? body.collection
     : "exit_capital_board_decisions";
+  const archiveText = venture ? [
+    `Archived venture: ${venture.name}`,
+    `Status at archive: ${venture.status || "unknown"}`,
+    `Decision: ${venture.decision || "not recorded"}`,
+    `Market: ${venture.market || "not recorded"}`,
+    `Reason: ${venture.reason || text}`,
+    `Evidence: ${(venture.evidence || []).join(" | ") || "not recorded"}`,
+    `Kill criteria: ${venture.kill || venture.kill_criteria || "not recorded"}`,
+    venture.redTeamReport ? `Red-team report:\n${venture.redTeamReport}` : "",
+    `Archive note: ${text}`
+  ].filter(Boolean).join("\n\n") : text;
   try {
-    await writeQdrantPoint(collection, text);
+    await writeQdrantPoint(collection, archiveText, {
+      agent: "archivist",
+      action: remove ? "archive-and-remove-venture" : "archive-memory",
+      venture_id: venture?.id,
+      venture_name: venture?.name,
+      archived_status: venture?.status,
+      removed_from_board: remove,
+      money_movement: false,
+      public_launch: false
+    });
   } catch (error) {
     res.writeHead(500, { "content-type": mime[".json"] });
     res.end(JSON.stringify({ error: error.message || "Qdrant archive failed" }));
     return;
   }
-  const event = `Archived board memory to ${collection}: ${text.slice(0, 180)}`;
+  if (remove) {
+    ventures.splice(ventureIndex, 1);
+    spinouts = spinouts.filter((spinout) => spinout.ventureId !== venture.id && spinout.ventureName !== venture.name);
+  }
+  const event = remove
+    ? `Archived and removed ${venture.name} from active pipeline.`
+    : `Archived board memory to ${collection}: ${text.slice(0, 180)}`;
   transcript.push({ role: "archivist", content: event, at: new Date().toISOString() });
   while (transcript.length > 12) transcript.shift();
-  await logEvent("memory_archive", { collection, text });
+  await logEvent("memory_archive", { collection, text: archiveText, venture, removed: remove });
   await saveOperatingState();
   res.writeHead(200, { "content-type": mime[".json"] });
-  res.end(JSON.stringify({ ok: true, collection, qdrant: await qdrantStatus(), transcript }));
+  res.end(JSON.stringify({ ok: true, collection, removed: remove, venture, ventures, qdrant: await qdrantStatus(), transcript }));
 }
 
 async function hermesContextApi(req, res) {

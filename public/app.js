@@ -171,7 +171,14 @@ function openVentureDetail(id) {
     if (data?.envelope) openVentureDetail(id);
   });
   $('#detailArchive')?.addEventListener('click', () => {
-    call('/api/memory/archive', { text: `${v.name}: ${v.reason || v.kill || 'venture checkpoint'}` }, $('#detailArchive'), 'Archiving…');
+    call('/api/memory/archive', {
+      venture_id: v.id,
+      remove: true,
+      collection: 'exit_capital_ventures',
+      text: `${v.name}: ${v.reason || v.kill || 'venture checkpoint'}`
+    }, $('#detailArchive'), 'Archiving…').then((data) => {
+      if (data?.removed) $('#ventureDetailModal').style.display = 'none';
+    });
   });
 }
 
