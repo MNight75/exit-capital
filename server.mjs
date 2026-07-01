@@ -11,6 +11,7 @@ const publicDir = join(root, "public");
 const dataDir = join(root, "data");
 const vaultDir = join(dataDir, "obsidian-vault");
 const businessIdeasDir = join(vaultDir, "Business Ideas");
+const researchBacklogDir = join(vaultDir, "Research Backlog");
 const agentBusDir = join(dataDir, "agent-bus");
 const agentBusPath = join(agentBusDir, "messages.jsonl");
 const hermesHandoffDir = join(dataDir, "hermes-handoff");
@@ -1445,6 +1446,100 @@ function normalizeBoardPitchHold(venture) {
   };
 }
 
+function isUnsupportedResearchCard(venture) {
+  const text = `${venture?.name || ""} ${venture?.reason || ""} ${(venture?.evidence || []).join(" ")}`.toLowerCase();
+  return needsBoardPitch(venture)
+    || /fallback board|research intern timed out|deterministic fallback|no-spend validation memo/.test(text)
+    || (String(venture?.source || "") === "live-venture-cycle" && !venture?.boardDecision && !venture?.boardReviewedAt && !venture?.redTeamReport && !venture?.cfoEnvelope);
+}
+
+async function archiveResearchBacklogCard(venture, reason = "Unsupported card removed from live pipeline.") {
+  await mkdir(researchBacklogDir, { recursive: true });
+  const now = new Date().toISOString();
+  const path = join(researchBacklogDir, `${slugify(venture?.name)}.md`);
+  const text = [
+    "---",
+    `name: ${yamlScalar(venture?.name || "Untitled research lead")}`,
+    `status: ${yamlScalar("research-backlog")}`,
+    `source_status: ${yamlScalar(venture?.status || "unknown")}`,
+    `archived: ${yamlScalar(now)}`,
+    `reason: ${yamlScalar(reason)}`,
+    "---",
+    "",
+    `# ${venture?.name || "Untitled research lead"}`,
+    "",
+    "This item was removed from the live operating board because it did not have enough workflow proof to be shown as an active venture.",
+    "",
+    `Reason: ${reason}`,
+    "",
+    "## Customer / Market",
+    "",
+    venture?.market || "Not recorded.",
+    "",
+    "## Prior Reason",
+    "",
+    venture?.reason || "Not recorded.",
+    "",
+    "## Evidence",
+    "",
+    markdownList(venture?.evidence || []),
+    "",
+    "## Kill Criteria",
+    "",
+    venture?.kill || venture?.kill_criteria || "Not recorded.",
+    "",
+    "## Researcher Instruction",
+    "",
+    "Treat this as memory only. Do not restore it to the live pipeline unless fresh research, board review, red-team review, and capital gates are actually run."
+  ].join("\n");
+  await writeFile(path, text);
+  try {
+    await writeQdrantPoint("exit_capital_research", text, {
+      agent: "research-backlog-quarantine",
+      venture_name: venture?.name || "unknown",
+      previous_status: venture?.status || "unknown",
+      money_movement: false
+    });
+  } catch (error) {
+    await logEvent("research_card_qdrant_archive_failed", {
+      venture_id: venture?.id,
+      venture_name: venture?.name,
+      error: String(error.message || error)
+    });
+  }
+  await logEvent("research_card_quarantined", {
+    venture_id: venture?.id,
+    venture_name: venture?.name,
+    previous_status: venture?.status,
+    backlog_path: path,
+    reason
+  });
+  return path;
+}
+
+function workflowVentures() {
+  return dedupeVentures(ventures)
+    .filter((venture) => !isSystemHoldVenture(venture))
+    .map((venture) => needsBoardPitch(venture) ? normalizeBoardPitchHold(venture) : venture);
+}
+
+function findWorkflowVenture(body = {}, statuses = []) {
+  const id = String(body.venture_id || "").trim();
+  const name = String(body.venture_name || body.subject || "").trim();
+  const allowed = new Set(statuses);
+  return ventures.find((venture) => id && venture.id === id)
+    || ventures.find((venture) => name && ventureDedupeKey(venture) === ventureDedupeKey({ name }))
+    || ventures.find((venture) => !allowed.size || allowed.has(String(venture.status || "")));
+}
+
+function replaceVenture(updated) {
+  const index = ventures.findIndex((venture) => venture.id === updated.id);
+  if (index >= 0) ventures[index] = updated;
+  else upsertVenture(updated);
+  syncSpinoutsFromVentures();
+  return updated;
+}
+
 function capitalPolicyState() {
   const available = Math.max(0, treasuryBalance());
   return {
@@ -1502,22 +1597,28 @@ async function loadOperatingState() {
     const state = JSON.parse(await readFile(operatingStatePath, "utf8"));
     let changed = false;
     if (Array.isArray(state.ventures) && state.ventures.length) {
-      const cleanedVentures = state.ventures.filter((venture) => {
-        if (isEmergencyDemoVenture(venture)) return false;
-        if (isSystemHoldVenture(venture)) return false;
-        if (venture.source !== "live-venture-cycle") return true;
-        if (/^Exit Capital\b/i.test(venture.name || "")) return false;
-        if (venture.status === "fund" && Number(venture.ask || 0) === 0) return false;
-        return true;
-      }).map((venture) => {
+      const cleanedVentures = [];
+      const quarantinedVentures = [];
+      for (const venture of state.ventures) {
+        if (isEmergencyDemoVenture(venture)) continue;
+        if (isSystemHoldVenture(venture)) continue;
+        if (/^Exit Capital\b/i.test(venture.name || "")) continue;
+        if (venture.status === "fund" && Number(venture.ask || 0) === 0) continue;
+        const normalized = (() => {
         if (isZeroDollarCapitalHold(venture)) return normalizePrePitchCapitalHold(venture);
         if (needsBoardPitch(venture)) return normalizeBoardPitchHold(venture);
         return venture;
-      });
+        })();
+        if (isUnsupportedResearchCard(normalized)) quarantinedVentures.push(normalized);
+        else cleanedVentures.push(normalized);
+      }
+      for (const venture of quarantinedVentures) {
+        await archiveResearchBacklogCard(venture, "No complete workflow artifact chain; moved to researcher backlog.");
+      }
       const dedupedVentures = dedupeVentures(cleanedVentures);
       changed = cleanedVentures.length !== state.ventures.length
         || dedupedVentures.length !== cleanedVentures.length
-        || cleanedVentures.some((venture) => venture.status === "board-pitch");
+        || quarantinedVentures.length > 0;
       ventures.splice(0, ventures.length, ...dedupedVentures.slice(0, 12));
     }
     if (Array.isArray(state.ledger) && state.ledger.length) {
@@ -2481,9 +2582,20 @@ async function ventureCycle(req, res) {
     try {
       research = await callResearchIntern(researchPrompt, Number(process.env.VENTURE_RESEARCH_TIMEOUT_MS || 12000));
     } catch (error) {
-      transcript.push({ role: "warn", content: `Research intern unavailable; using deterministic fallback memo. ${String(error.message || error).slice(0, 240)}`, at: new Date().toISOString() });
-      research = fallbackResearchMemo(seed, error.name === "AbortError" ? "research intern timed out" : String(error.message || "research intern failed").slice(0, 120));
-      researchFallback = true;
+      const message = `Research intern unavailable; no venture card created. ${String(error.message || error).slice(0, 240)}`;
+      transcript.push({ role: "warn", content: message, at: new Date().toISOString() });
+      await writeQdrantPoint("exit_capital_audit_events", message, {
+        agent: "research-intern",
+        action: "venture-cycle-aborted",
+        seed,
+        money_movement: false
+      });
+      await logEvent("venture_cycle_aborted", { seed, stage: "research", error: String(error.message || error) });
+      while (transcript.length > 12) transcript.shift();
+      await saveOperatingState();
+      res.writeHead(503, { "content-type": mime[".json"] });
+      res.end(JSON.stringify({ error: message, seed, ventures, transcript }));
+      return;
     }
     if (!researchFallback) {
       try {
@@ -2573,9 +2685,20 @@ async function ventureCycle(req, res) {
       try {
         boardDecision = await callHermes(boardPrompt, Number(process.env.VENTURE_HERMES_TIMEOUT_MS || 18000));
       } catch (error) {
-        transcript.push({ role: "warn", content: `Hermes board unavailable; using deterministic no-spend fallback decision. ${String(error.message || error).slice(0, 240)}`, at: new Date().toISOString() });
-        boardDecision = fallbackBoardDecision(seed, error.name === "AbortError" ? "Hermes timed out" : String(error.message || "Hermes failed").slice(0, 120));
-        boardFallback = true;
+        const message = `Hermes board unavailable; no venture card created. ${String(error.message || error).slice(0, 240)}`;
+        transcript.push({ role: "warn", content: message, at: new Date().toISOString() });
+        await writeQdrantPoint("exit_capital_audit_events", message, {
+          agent: "board",
+          action: "venture-cycle-aborted",
+          seed,
+          money_movement: false
+        });
+        await logEvent("venture_cycle_aborted", { seed, stage: "board", error: String(error.message || error) });
+        while (transcript.length > 12) transcript.shift();
+        await saveOperatingState();
+        res.writeHead(503, { "content-type": mime[".json"] });
+        res.end(JSON.stringify({ error: message, seed, ventures, transcript }));
+        return;
       }
     }
     if (!boardFallback) {
