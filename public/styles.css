@@ -235,11 +235,12 @@ body {
 /* ====== PIPELINE ====== */
 .pipe {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
   gap: 8px;
   padding: 10px;
   flex: 1;
   min-height: 0;
+  overflow-x: auto;
 }
 
 .lane {
@@ -270,6 +271,7 @@ body {
 }
 .lane.kill .lane-h .nm { color: var(--rose); }
 .lane.live .lane-h .nm { color: var(--emerald); }
+.lane.board .lane-h .nm { color: var(--violet); }
 
 .lane-b {
   padding: 8px;
@@ -301,6 +303,7 @@ body {
 .vcard::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 4px; }
 .vcard::-webkit-scrollbar-track { background: transparent; }
 .vcard.gate   { border-left-color: var(--amber); }
+.vcard.board  { border-left-color: var(--violet); }
 .vcard.killed { border-left-color: var(--rose);  opacity: .80; }
 .vcard.live   { border-left-color: var(--emerald); }
 

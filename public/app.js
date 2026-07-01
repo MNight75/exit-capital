@@ -29,13 +29,17 @@ function renderAgents(active = [], states = {}) {
 }
 
 /* ── VENTURE PIPELINE ──────────────────────────────────────── */
-const LANES = ['Proposed','Red-Team','Capital Gate','Live','Killed'];
+const LANES = ['Pre-Pitch','Board Pitch','Red-Team','Capital Gate','Live','Killed'];
 
 function toLane(v) {
   if (v.status === 'scale')  return 'Live';
   if (v.status === 'reject' || v.status === 'kill') return 'Killed';
-  if (v.status === 'fund' || v.status === 'pending') return 'Capital Gate';
-  return 'Proposed';
+  if (v.status === 'red-team') return 'Red-Team';
+  if (v.status === 'pre-pitch') return 'Pre-Pitch';
+  if (v.status === 'board-pitch' || v.status === 'needs-board-pitch') return 'Board Pitch';
+  if ((v.status === 'fund' || v.status === 'pending') && v.cfoEnvelope) return 'Capital Gate';
+  if (v.status === 'fund' || v.status === 'pending') return 'Board Pitch';
+  return 'Pre-Pitch';
 }
 
 function chips(v, lane) {
@@ -44,15 +48,18 @@ function chips(v, lane) {
   else          out.push('<span class="chip honest" title="Real data from a live venture cycle, not demo">🍵 Honest</span>');
   if (lane === 'Live')   out.push('<span class="chip ok">LIVE</span>');
   if (lane === 'Killed') out.push('<span class="chip warn">KILLED pre-spend</span>');
+  if (lane === 'Board Pitch') out.push('<span class="chip amb">BOARD NEEDED</span>');
+  if (lane === 'Capital Gate') out.push('<span class="chip amb">CFO READY</span>');
   if (v.score != null)   out.push(`<span class="chip">score ${v.score}</span>`);
   if (v.ask)             out.push(`<span class="chip amb">$${v.ask}</span>`);
+  else if (v.requested_budget) out.push(`<span class="chip amb">ask held $${v.requested_budget}</span>`);
   return out.join('');
 }
 
 function renderPipe(ventures = []) {
   window._ventureById = Object.fromEntries((ventures || []).map(v => [v.id, v]));
   $('#pipe').innerHTML = LANES.map(lane => {
-    const cls   = lane === 'Killed' ? 'kill' : lane === 'Live' ? 'live' : '';
+    const cls   = lane === 'Killed' ? 'kill' : lane === 'Live' ? 'live' : lane === 'Board Pitch' ? 'board' : '';
     const items = ventures.filter(v => toLane(v) === lane);
     return `<div class="lane ${cls}">
       <div class="lane-h">
@@ -60,7 +67,7 @@ function renderPipe(ventures = []) {
         <span class="ct">${items.length || ''}</span>
       </div>
       <div class="lane-b">${items.map(v => {
-        const vc = lane === 'Capital Gate' ? 'gate' : lane === 'Killed' ? 'killed' : lane === 'Live' ? 'live' : '';
+        const vc = lane === 'Capital Gate' ? 'gate' : lane === 'Board Pitch' ? 'board' : lane === 'Killed' ? 'killed' : lane === 'Live' ? 'live' : '';
         return `<button class="vcard ${vc}" type="button" data-venture-id="${esc(v.id)}" title="Open venture details">
           <div class="vt">${esc(v.name)}</div>
           <div class="vd">${esc(v.market || '')}</div>

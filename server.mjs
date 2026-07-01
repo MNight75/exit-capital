@@ -1419,6 +1419,32 @@ function normalizePrePitchCapitalHold(venture) {
   };
 }
 
+function needsBoardPitch(venture) {
+  return ["fund", "scale", "pending"].includes(String(venture?.status || "").toLowerCase())
+    && !venture?.cfoEnvelope
+    && !venture?.pendingApprovalId;
+}
+
+function normalizeBoardPitchHold(venture) {
+  const requested = Number(venture?.ask || venture?.approved_budget || 0);
+  return {
+    ...venture,
+    requested_budget: requested || venture?.requested_budget || 0,
+    ask: 0,
+    spend: 0,
+    approved_budget: 0,
+    status: "board-pitch",
+    decision: "Needs Board Pitch",
+    cfoEnvelope: null,
+    humanApproved: false,
+    reason: "Awaiting a full board pitch and signed board decision. CFO/capital review is locked until the board finishes.",
+    evidence: [
+      ...(venture?.evidence || []).filter((item) => !/CFO|capital gate/i.test(String(item))).slice(0, 2),
+      "Capital gate is unavailable until the board records a decision."
+    ].slice(0, 3)
+  };
+}
+
 function capitalPolicyState() {
   const available = Math.max(0, treasuryBalance());
   return {
@@ -1483,9 +1509,15 @@ async function loadOperatingState() {
         if (/^Exit Capital\b/i.test(venture.name || "")) return false;
         if (venture.status === "fund" && Number(venture.ask || 0) === 0) return false;
         return true;
-      }).map((venture) => isZeroDollarCapitalHold(venture) ? normalizePrePitchCapitalHold(venture) : venture);
+      }).map((venture) => {
+        if (isZeroDollarCapitalHold(venture)) return normalizePrePitchCapitalHold(venture);
+        if (needsBoardPitch(venture)) return normalizeBoardPitchHold(venture);
+        return venture;
+      });
       const dedupedVentures = dedupeVentures(cleanedVentures);
-      changed = cleanedVentures.length !== state.ventures.length || dedupedVentures.length !== cleanedVentures.length;
+      changed = cleanedVentures.length !== state.ventures.length
+        || dedupedVentures.length !== cleanedVentures.length
+        || cleanedVentures.some((venture) => venture.status === "board-pitch");
       ventures.splice(0, ventures.length, ...dedupedVentures.slice(0, 12));
     }
     if (Array.isArray(state.ledger) && state.ledger.length) {
@@ -1519,9 +1551,10 @@ async function loadOperatingState() {
       safetyEvents.splice(0, safetyEvents.length, ...state.safetyEvents.slice(0, safetyConfig.maxEvents));
     }
     if (Array.isArray(state.decisionRecords) && state.decisionRecords.length) {
-      const liveVentureIds = new Set(ventures.map((venture) => venture.id));
+      const ventureById = new Map(ventures.map((venture) => [venture.id, venture]));
       for (const { id, record } of state.decisionRecords) {
-        if (id && record && liveVentureIds.has(id) && !emergencyDemoVentureIds.has(record.ventureId)) {
+        const venture = ventureById.get(record?.ventureId || id);
+        if (id && record && venture && venture.status !== "board-pitch" && !emergencyDemoVentureIds.has(record.ventureId)) {
           decisionRecords.set(id, record);
         } else {
           changed = true;
@@ -2262,7 +2295,9 @@ async function api(res) {
   const openrouter = openRouterStatus();
   const vault = await loadVaultIdeas(20);
   syncSpinoutsFromVentures();
-  const visibleVentures = dedupeVentures(ventures).filter((venture) => !isSystemHoldVenture(venture));
+  const visibleVentures = dedupeVentures(ventures)
+    .filter((venture) => !isSystemHoldVenture(venture))
+    .map((venture) => needsBoardPitch(venture) ? normalizeBoardPitchHold(venture) : venture);
   const totals = visibleVentures.reduce((acc, v) => {
     acc.spend += v.spend;
     acc.revenue += v.revenue;
@@ -3226,7 +3261,9 @@ async function agent(req, res) {
 }
 
 async function stateApi(res) {
-  const uniqueVentures = dedupeVentures(ventures).filter((venture) => !isSystemHoldVenture(venture));
+  const uniqueVentures = dedupeVentures(ventures)
+    .filter((venture) => !isSystemHoldVenture(venture))
+    .map((venture) => needsBoardPitch(venture) ? normalizeBoardPitchHold(venture) : venture);
   syncSpinoutsFromVentures();
   const totals = uniqueVentures.reduce((acc, v) => {
     acc.spend   += v.spend   || 0;
@@ -3466,29 +3503,6 @@ async function staticFile(req, res) {
 
 await loadOrCreateKeypair();
 await loadOperatingState();
-
-// Repair: sign any funded/scaled ventures that have no persisted record
-(function repairMissingRecords() {
-  const needsSigning = ventures.filter(v =>
-    (v.status === "scale" || v.status === "fund" || v.humanApproved) &&
-    !decisionRecords.has(v.id)
-  );
-  if (!needsSigning.length) return;
-  const ts = new Date().toISOString();
-  for (const v of needsSigning) {
-    const outcome = v.status === "scale" ? "executed" : "funded";
-    const steps = [
-      { n: 1, kind: "propose",       actor: "archivist",      summary: "Proposed by Research Intern → Board", detail: (v.market || "").slice(0, 300), result: "pass", ts },
-      { n: 2, kind: "board_council", actor: "board-council",  summary: "Board council: approved",            detail: (v.reason || "").slice(0, 300), result: "pass", ts },
-      { n: 3, kind: "safety",        actor: "safety-gate",    summary: "NeMo Guardrails: no critical block", detail: "Host-side rails applied.",        result: "pass", ts },
-      { n: 4, kind: "capital_gate",  actor: "cfo",            summary: `CFO: ${v.decision || "Fund"} · $${v.approved_budget ?? v.ask ?? 0} cap`, detail: (v.kill || "").slice(0, 200), result: "pass", ts },
-      { n: 5, kind: "human_gate",    actor: v.humanApproved ? "human-operator" : "bypass", summary: v.humanApproved ? "Human Gate: APPROVED" : "Human Gate: bypass", detail: v.approvalId || "bypass", result: "pass", ts }
-    ];
-    const rec = { id: `rec-${Date.now().toString(36)}-${v.id.slice(0, 8)}`, ventureId: v.id, steps, outcome, livemode: false, ts };
-    decisionRecords.set(v.id, signDecision(rec));
-  }
-  saveOperatingState().catch(() => {});
-}());
 
 createServer((req, res) => {
   staticFile(req, res).catch((error) => {
