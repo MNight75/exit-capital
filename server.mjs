@@ -5,6 +5,14 @@ import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promise
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import nacl from "tweetnacl";
+import {
+  applyRedTeamOutcome,
+  archivePayloadForVenture,
+  evaluateRedTeamResults,
+  parsePrePitchCandidate,
+  promoteBoardPitchToRedTeam,
+  promoteResearchToBoardPitch
+} from "./lib/pipeline.mjs";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const publicDir = join(root, "public");
@@ -1068,68 +1076,11 @@ function parseVentureRecord(seed, research, boardDecision) {
 }
 
 function prePitchFromResearch(seed, research, reason = "Board review unavailable; preserving research as pre-pitch.") {
-  const fallbackNames = [
-    "Permit Queue Concierge",
-    "Vendor Renewal Desk",
-    "Shift Coverage Ledger",
-    "Field Service Window",
-    "Compliance Packet Runner",
-    "Maintenance Quote Desk"
-  ];
-  const fallbackName = fallbackNames[Math.abs(hashText(`${seed}\n${research}`)) % fallbackNames.length];
-  const rawName = firstMatch(research, [
-    /\*\*Business Name:\*\*\s*([^\n]+)/i,
-    /Business Name:\s*([^\n]+)/i,
-    /\*\*Business Idea:\*\*\s*([^\n]+)/i,
-    /\*\*Venture Name:\*\*\s*([^\n]+)/i,
-    /^#+\s*\*{0,2}([^*\n#][^\n]{5,80}?)\*{0,2}\s*$/m,
-    /^\*\*([^*\n]{6,80})\*\*\s*$/m
-  ], fallbackName);
-  const name = rawName
-    .replace(/^#+\s*/, "")
-    .replace(/\*\*/g, "")
-    .replace(/^(business name|venture name|business idea)\s*:\s*/i, "")
-    .trim() || fallbackName;
-  const market = cleanResearchField(firstMatch(research, [
-    /\*\*Customer:\*\*\s*([^\n]+)/i,
-    /Customer:\s*([^\n]+)/i,
-    /\*\*Target Customer:\*\*\s*([^\n]+)/i,
-    /Target Customer:\s*([^\n]+)/i,
-    /\*\*Market:\*\*\s*([^\n]+)/i
-  ], "B2B operations buyer"));
-  const pain = cleanResearchField(firstMatch(research, [/\*\*Pain:\*\*\s*([^\n]+)/i, /Pain:\s*([^\n]+)/i], "Research identified an operational pain."));
-  const offer = cleanResearchField(firstMatch(research, [/\*\*Offer:\*\*\s*([^\n]+)/i, /Offer:\s*([^\n]+)/i], "Offer needs board review."));
-  const fundingNeed = cleanResearchField(firstMatch(research, [
-    /\*\*Funding Need:\*\*\s*([^\n]+)/i,
-    /Funding Need:\s*([^\n]+)/i,
-    /\*\*Funding:\*\*\s*([^\n]+)/i,
-    /Funding:\s*([^\n]+)/i,
-    /\*\*Validation Budget:\*\*\s*([^\n]+)/i,
-    /Validation Budget:\s*([^\n]+)/i
-  ], "$0 pre-pitch. Needs human-approved validation budget before outreach, domain, SaaS, or paid tools."));
-  const kill = cleanResearchField(firstMatch(research, [
-    /\*\*Kill criteria[^:]*:\*\*\s*([^\n]+)/i,
-    /Kill criteria[^:]*:\s*([^\n]+)/i,
-    /Kill if\s+([^\n]+)/i
-  ], "Kill if no measurable validation signal appears before any spend or outreach."));
+  const parsed = parsePrePitchCandidate({ seed, research, reason });
   return {
-    id: `${slugify(name)}-${Date.now().toString(36)}`,
-    name: name.slice(0, 120),
-    market: market.slice(0, 120),
-    ask: 0,
-    requested_budget: 0,
-    status: "pre-pitch",
-    score: 58,
-    spend: 0,
-    revenue: 0,
-    decision: "Pre-Pitch",
-    reason: String(reason).slice(0, 260),
-    evidence: [pain, offer, `Funding need: ${fundingNeed}`].map((item) => String(item).slice(0, 180)),
-    kill: kill.slice(0, 220),
+    ...parsed,
+    id: `${slugify(parsed.name)}-${Date.now().toString(36)}`,
     createdAt: new Date().toISOString(),
-    source: "live-venture-cycle",
-    boardDecision: null,
-    boardReviewedAt: null
   };
 }
 
@@ -2645,14 +2596,7 @@ async function researchIntern(req, res) {
     await enforceSafety(prompt, { action: "research", public: false, money: false });
     const prePitch = ventures.find((venture) => venture.status === "pre-pitch");
     if (prePitch && /current|venture|opportunity|research|pre-?pitch|candidate/i.test(prompt)) {
-      prePitch.status = "board-pitch";
-      prePitch.decision = "Board Pitch";
-      prePitch.researchedAt = new Date().toISOString();
-      prePitch.reason = "Research filled out the Pre-Pitch candidate and promoted it for board evaluation. No capital, outreach, public launch, or payment action is approved.";
-      prePitch.evidence = [
-        ...(prePitch.evidence || []).slice(0, 2),
-        "Researcher marked the candidate ready for Board Pitch."
-      ].slice(0, 3);
+      Object.assign(prePitch, promoteResearchToBoardPitch(prePitch));
       const content = [
         `Researcher promoted ${prePitch.name} to Board Pitch.`,
         "",
@@ -3091,10 +3035,10 @@ async function redTeamCouncil(req, res) {
         return { model, ok: false, error: error.name === "AbortError" ? "timed out" : error.message };
       }
     }));
-    const majorFlawPattern = /\b(no[- ]?go|do not proceed|fatal blocker|fatal flaw|kill\b|reject\b|unsafe|illegal|non[- ]?viable|major flaw|stop before|should not advance)\b/i;
-    const passed = results.filter((result) => result.ok && !majorFlawPattern.test(result.content || ""));
-    const failed = results.filter((result) => !result.ok);
-    const majorFlaws = results.filter((result) => result.ok && majorFlawPattern.test(result.content || ""));
+    const evaluation = evaluateRedTeamResults(results);
+    const passed = evaluation.greenLights;
+    const failed = evaluation.failed;
+    const majorFlaws = evaluation.majorFlaws;
     const redTeamVenture = ventures.find((venture) => venture.status === "red-team");
     const councilReport = [
       "# Red Team Council",
@@ -3113,26 +3057,13 @@ async function redTeamCouncil(req, res) {
       at: new Date().toISOString()
     });
     if (redTeamVenture) {
-      redTeamVenture.redTeamReport = councilReport.slice(0, 8000);
-      redTeamVenture.redTeamReviewedAt = new Date().toISOString();
-      redTeamVenture.redTeamPassed = passed.length >= 3 && majorFlaws.length === 0;
+      Object.assign(redTeamVenture, applyRedTeamOutcome(redTeamVenture, councilReport, evaluation));
       if (redTeamVenture.redTeamPassed) {
-        redTeamVenture.status = "capital-gate";
-        redTeamVenture.decision = "Red-Team Passed";
-        redTeamVenture.reason = `Red-Team passed with ${passed.length}/${results.length} green-light seats and no major flaws detected. CFO and Human Gate still required before any spend, outreach, public launch, or Stripe action.`;
-        redTeamVenture.evidence = [
-          ...(redTeamVenture.evidence || []).slice(0, 2),
-          `Red-Team passed ${passed.length}/${results.length}; failures and model errors recorded for audit.`
-        ].slice(0, 3);
         transcript.push({
           role: "red-team",
           content: `${redTeamVenture.name} advanced to Capital Gate. CFO review is now the next required step.`,
           at: new Date().toISOString()
         });
-      } else {
-        redTeamVenture.reason = majorFlaws.length
-          ? `Red-Team hold: ${majorFlaws.length} responding seat${majorFlaws.length === 1 ? "" : "s"} found a major flaw. Repair before capital review.`
-          : `Red-Team hold: only ${passed.length}/${results.length} green-light seats responded. Repair before capital review.`;
       }
     }
     while (transcript.length > 12) transcript.shift();
@@ -3353,17 +3284,7 @@ async function archiveBoard(req, res) {
   const collection = qdrantConfig.collections.includes(body.collection)
     ? body.collection
     : "exit_capital_board_decisions";
-  const archiveText = venture ? [
-    `Archived venture: ${venture.name}`,
-    `Status at archive: ${venture.status || "unknown"}`,
-    `Decision: ${venture.decision || "not recorded"}`,
-    `Market: ${venture.market || "not recorded"}`,
-    `Reason: ${venture.reason || text}`,
-    `Evidence: ${(venture.evidence || []).join(" | ") || "not recorded"}`,
-    `Kill criteria: ${venture.kill || venture.kill_criteria || "not recorded"}`,
-    venture.redTeamReport ? `Red-team report:\n${venture.redTeamReport}` : "",
-    `Archive note: ${text}`
-  ].filter(Boolean).join("\n\n") : text;
+  const archiveText = archivePayloadForVenture(venture, text);
   try {
     await writeQdrantPoint(collection, archiveText, {
       agent: "archivist",
@@ -3618,14 +3539,7 @@ async function agent(req, res) {
     await enforceSafety(prompt, { action: "agent-prompt", money: /stripe|payment|spend|charge|buy|purchase/i.test(prompt), public: /tweet|discord|email|publish|post/i.test(prompt) });
     const boardPitch = ventures.find((venture) => venture.status === "board-pitch" || venture.status === "needs-board-pitch");
     if (boardPitch && /board|portfolio|verdict|review|pitch/i.test(prompt)) {
-      boardPitch.status = "red-team";
-      boardPitch.decision = "Board Reviewed";
-      boardPitch.boardReviewedAt = new Date().toISOString();
-      boardPitch.reason = "Board accepted the candidate for adversarial Red-Team review. CFO, capital, public launch, and money rails remain locked.";
-      boardPitch.evidence = [
-        ...(boardPitch.evidence || []).slice(0, 2),
-        "Board moved the candidate to Red-Team for adversarial review."
-      ].slice(0, 3);
+      Object.assign(boardPitch, promoteBoardPitchToRedTeam(boardPitch));
       const content = [
         `Board Review advanced ${boardPitch.name} to Red-Team.`,
         "",

@@ -47,6 +47,8 @@ flowchart LR
 | Path | Purpose |
 | --- | --- |
 | `server.mjs` | Main orchestrator API, pipeline transitions, Qdrant writes, safety checks, Stripe dry-run queue, human gate, and agent endpoints. |
+| `lib/pipeline.mjs` | Tested business rules for research parsing, lane transitions, Red-Team pass/fail criteria, and archive payload generation. |
+| `test/pipeline.test.mjs` | Node test suite proving the core pipeline rules without needing live model/API calls. |
 | `public/index.html` | Dashboard shell and cockpit controls. |
 | `public/app.js` | Frontend state rendering, lane board, card detail modal, cockpit actions, and agent light behavior. |
 | `public/styles.css` | Operations-console styling and permanent cockpit layout. |
@@ -64,3 +66,20 @@ flowchart LR
 ## Governance Summary
 
 Exit Capital is intentionally not a free-running money bot. Agents can propose, research, red-team, and prepare dry-run operational plans, but live spend and public launch remain behind CFO, Human Gate, Stripe controls, and NemoClaw/OpenShell safety policy.
+
+## Testable Core
+
+The core pipeline logic is deliberately isolated from the dashboard:
+
+```bash
+npm test
+```
+
+The tests cover:
+
+- named business extraction from research memos
+- Pre-Pitch -> Board Pitch promotion
+- Board Pitch -> Red-Team promotion
+- Red-Team advancement on 3/5 green-light seats with no major flaw
+- Red-Team hold when a major flaw appears
+- archive payloads that preserve failed-idea lessons for Qdrant
