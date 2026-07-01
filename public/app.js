@@ -3,6 +3,19 @@ const fmt = n => '$' + Math.round(Math.abs(n)).toLocaleString('en-US');
 const esc = s => String(s ?? '')
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+let currentActiveAgents = [];
+
+function activeAgentsForEndpoint(endpoint) {
+  if (endpoint === '/api/agent') return ['board'];
+  if (endpoint === '/api/venture-cycle') return ['research', 'board', 'arch'];
+  if (endpoint === '/api/red-team') return ['red'];
+  if (endpoint === '/api/research') return ['research'];
+  if (endpoint === '/api/cfo-review') return ['cfo'];
+  if (endpoint === '/api/memory/archive') return ['arch'];
+  if (endpoint === '/api/safety/reset') return ['safe'];
+  if (endpoint.startsWith('/api/spinout')) return ['shell'];
+  return [];
+}
 
 /* ── AGENT COUNCIL ─────────────────────────────────────────── */
 const AGENTS = [
@@ -341,19 +354,12 @@ async function refresh() {
 
     window._currentVentures = ventures;
 
-    // Derive agent active states — map to valid CSS classes: active, ok, danger
-    const recentRoles = (d.transcript || []).slice(-5).map(m => m.role);
-    const activeIds = [], agentStates = {};
-    if (recentRoles.includes('intern'))   { activeIds.push('research'); }
-    if (recentRoles.some(r => r === 'agent' || r === 'board-council')) { activeIds.push('board'); }
-    if (recentRoles.includes('archivist')) { activeIds.push('arch'); agentStates['arch'] = 'ok'; }
-    if (recentRoles.includes('cfo'))       { activeIds.push('cfo'); }
+    // Active means actively doing work, not merely appearing in the transcript.
+    const activeIds = [...currentActiveAgents], agentStates = {};
     const hasPending = (d.humanGate?.pending || []).length > 0;
     if (hasPending)                        { activeIds.push('gate'); }
-    else if (recentRoles.includes('human')) { agentStates['gate'] = 'ok'; }
     const safetyBlocked = (d.safety?.recent || []).some(e => e.blocked || e.action === 'blocked');
     if (safetyBlocked)                     { agentStates['safe'] = 'danger'; }
-    else if (recentRoles.includes('safety')) { activeIds.push('safe'); }
     renderAgents(activeIds, agentStates);
 
     renderPipe(ventures);
@@ -465,6 +471,8 @@ async function call(endpoint, body, btn, label) {
   const orig = btn.textContent;
   btn.disabled = true;
   btn.textContent = label;
+  currentActiveAgents = activeAgentsForEndpoint(endpoint);
+  renderAgents(currentActiveAgents);
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -481,6 +489,8 @@ async function call(endpoint, body, btn, label) {
   } finally {
     btn.disabled = false;
     btn.textContent = orig;
+    currentActiveAgents = [];
+    await refresh();
   }
 }
 
@@ -497,6 +507,7 @@ $('#runVentureCycle').addEventListener('click', () => {
 $('#agents').addEventListener('click', async (event) => {
   const item = event.target.closest('[data-agent-id="safe"]');
   if (!item) return;
+  currentActiveAgents = ['safe'];
   item.classList.add('active');
   $('#phase').innerHTML = `<span class="dotc pulse"></span>human resetting safety gate…`;
   try {
@@ -512,7 +523,9 @@ $('#agents').addEventListener('click', async (event) => {
   } catch (err) {
     $('#phase').innerHTML = `<span class="dotc" style="background:var(--rose)"></span>${esc(err.message)}`;
   } finally {
+    currentActiveAgents = [];
     item.classList.remove('active');
+    await refresh();
   }
 });
 
