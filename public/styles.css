@@ -132,8 +132,8 @@ body {
 .pill-cockpit  { color: var(--cyan);  border-color: rgba(57,214,224,.30); cursor: pointer; }
 .pill-cockpit:hover,
 .pill-cockpit.active { background: rgba(57,214,224,.10); }
-.pill-honest   { color: #2dd4bf; border-color: rgba(45,212,191,.35); cursor: pointer; }
-.pill-honest:hover { background: rgba(45,212,191,.12); }
+.pill-verify   { color: #2dd4bf; border-color: rgba(45,212,191,.35); cursor: pointer; }
+.pill-verify:hover { background: rgba(45,212,191,.12); }
 
 .pulse { animation: blink 1.6s ease-in-out infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -326,7 +326,7 @@ body {
 .chip.warn { background: rgba(255,93,108,.13);  color: var(--rose);   border-color: rgba(255,93,108,.22); }
 .chip.ok   { background: rgba(55,211,153,.13);  color: var(--emerald);border-color: rgba(55,211,153,.22); }
 .chip.amb  { background: rgba(245,185,69,.13);  color: var(--amber);  border-color: rgba(245,185,69,.22); }
-.chip.honest { background: rgba(45,212,191,.13); color: #2dd4bf; border-color: rgba(45,212,191,.24); }
+.chip.synthetic { background: rgba(45,212,191,.13); color: #2dd4bf; border-color: rgba(45,212,191,.24); }
 
 @keyframes rise {
   from { transform: translateY(-8px) scale(.97); opacity: 0; }

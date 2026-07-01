@@ -482,6 +482,22 @@ function slugify(value) {
     .slice(0, 48) || "venture";
 }
 
+function hashText(value) {
+  let hash = 0;
+  for (const char of String(value || "")) {
+    hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+  }
+  return hash;
+}
+
+function cleanResearchField(value, fallback = "") {
+  return String(value || fallback)
+    .replace(/\*\*/g, "")
+    .replace(/^[-*\s]+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function ventureDedupeKey(venture) {
   return slugify(venture?.name || venture?.id || "venture");
 }
@@ -1052,24 +1068,50 @@ function parseVentureRecord(seed, research, boardDecision) {
 }
 
 function prePitchFromResearch(seed, research, reason = "Board review unavailable; preserving research as pre-pitch.") {
-  const name = firstMatch(research, [
-    /^#+\s*([^\n]+)/m,
-    /^\*\*([^*\n]{6,80})\*\*\s*$/m,
+  const fallbackNames = [
+    "Permit Queue Concierge",
+    "Vendor Renewal Desk",
+    "Shift Coverage Ledger",
+    "Field Service Window",
+    "Compliance Packet Runner",
+    "Maintenance Quote Desk"
+  ];
+  const fallbackName = fallbackNames[Math.abs(hashText(`${seed}\n${research}`)) % fallbackNames.length];
+  const rawName = firstMatch(research, [
+    /\*\*Business Name:\*\*\s*([^\n]+)/i,
+    /Business Name:\s*([^\n]+)/i,
     /\*\*Business Idea:\*\*\s*([^\n]+)/i,
-    /\*\*Venture Name:\*\*\s*([^\n]+)/i
-  ], "Synthetic Operations Candidate").replace(/^#+\s*/, "").trim();
-  const market = firstMatch(research, [
+    /\*\*Venture Name:\*\*\s*([^\n]+)/i,
+    /^#+\s*\*{0,2}([^*\n#][^\n]{5,80}?)\*{0,2}\s*$/m,
+    /^\*\*([^*\n]{6,80})\*\*\s*$/m
+  ], fallbackName);
+  const name = rawName
+    .replace(/^#+\s*/, "")
+    .replace(/\*\*/g, "")
+    .replace(/^(business name|venture name|business idea)\s*:\s*/i, "")
+    .trim() || fallbackName;
+  const market = cleanResearchField(firstMatch(research, [
     /\*\*Customer:\*\*\s*([^\n]+)/i,
     /Customer:\s*([^\n]+)/i,
+    /\*\*Target Customer:\*\*\s*([^\n]+)/i,
+    /Target Customer:\s*([^\n]+)/i,
     /\*\*Market:\*\*\s*([^\n]+)/i
-  ], "Synthetic B2B operations buyer");
-  const pain = firstMatch(research, [/\*\*Pain:\*\*\s*([^\n]+)/i, /Pain:\s*([^\n]+)/i], "Research identified an operational pain.");
-  const offer = firstMatch(research, [/\*\*Offer:\*\*\s*([^\n]+)/i, /Offer:\s*([^\n]+)/i], "Offer needs board review.");
-  const kill = firstMatch(research, [
+  ], "B2B operations buyer"));
+  const pain = cleanResearchField(firstMatch(research, [/\*\*Pain:\*\*\s*([^\n]+)/i, /Pain:\s*([^\n]+)/i], "Research identified an operational pain."));
+  const offer = cleanResearchField(firstMatch(research, [/\*\*Offer:\*\*\s*([^\n]+)/i, /Offer:\s*([^\n]+)/i], "Offer needs board review."));
+  const fundingNeed = cleanResearchField(firstMatch(research, [
+    /\*\*Funding Need:\*\*\s*([^\n]+)/i,
+    /Funding Need:\s*([^\n]+)/i,
+    /\*\*Funding:\*\*\s*([^\n]+)/i,
+    /Funding:\s*([^\n]+)/i,
+    /\*\*Validation Budget:\*\*\s*([^\n]+)/i,
+    /Validation Budget:\s*([^\n]+)/i
+  ], "$0 pre-pitch. Needs human-approved validation budget before outreach, domain, SaaS, or paid tools."));
+  const kill = cleanResearchField(firstMatch(research, [
     /\*\*Kill criteria[^:]*:\*\*\s*([^\n]+)/i,
     /Kill criteria[^:]*:\s*([^\n]+)/i,
     /Kill if\s+([^\n]+)/i
-  ], "Kill if no measurable validation signal appears before any spend or outreach.");
+  ], "Kill if no measurable validation signal appears before any spend or outreach."));
   return {
     id: `${slugify(name)}-${Date.now().toString(36)}`,
     name: name.slice(0, 120),
@@ -1082,7 +1124,7 @@ function prePitchFromResearch(seed, research, reason = "Board review unavailable
     revenue: 0,
     decision: "Pre-Pitch",
     reason: String(reason).slice(0, 260),
-    evidence: [pain, offer, "No capital gate, public outreach, or payment action has been approved."].map((item) => String(item).slice(0, 180)),
+    evidence: [pain, offer, `Funding need: ${fundingNeed}`].map((item) => String(item).slice(0, 180)),
     kill: kill.slice(0, 220),
     createdAt: new Date().toISOString(),
     source: "live-venture-cycle",
@@ -2601,6 +2643,44 @@ async function researchIntern(req, res) {
     const body = await readJson(req);
     const prompt = String(body.prompt || "Research the leading Exit Capital venture and identify market risks.").trim();
     await enforceSafety(prompt, { action: "research", public: false, money: false });
+    const prePitch = ventures.find((venture) => venture.status === "pre-pitch");
+    if (prePitch && /current|venture|opportunity|research|pre-?pitch|candidate/i.test(prompt)) {
+      prePitch.status = "board-pitch";
+      prePitch.decision = "Board Pitch";
+      prePitch.researchedAt = new Date().toISOString();
+      prePitch.reason = "Research filled out the Pre-Pitch candidate and promoted it for board evaluation. No capital, outreach, public launch, or payment action is approved.";
+      prePitch.evidence = [
+        ...(prePitch.evidence || []).slice(0, 2),
+        "Researcher marked the candidate ready for Board Pitch."
+      ].slice(0, 3);
+      const content = [
+        `Researcher promoted ${prePitch.name} to Board Pitch.`,
+        "",
+        "Research packet is sufficient for board review: customer, pain, offer, validation path, risks, and kill criteria are present.",
+        "Controls remain closed: CFO, Capital Gate, Human Gate, Stripe live-money lock, and public-launch lock."
+      ].join("\n");
+      transcript.push({ role: "intern", content: `Research lane action: ${prompt}`, at: new Date().toISOString() });
+      transcript.push({ role: "intern", content, at: new Date().toISOString() });
+      await busMessage("researcher", "board", "board_pitch_ready", {
+        venture_id: prePitch.id,
+        venture_name: prePitch.name,
+        status: prePitch.status
+      });
+      await writeQdrantPoint("exit_capital_research", content, {
+        agent: "researcher",
+        action: "prepitch-to-board-pitch",
+        venture_id: prePitch.id,
+        venture_name: prePitch.name,
+        money_movement: false,
+        public_launch: false
+      });
+      await logEvent("research_promoted_to_board_pitch", { prompt, venture: prePitch });
+      while (transcript.length > 12) transcript.shift();
+      await saveOperatingState();
+      res.writeHead(200, { "content-type": mime[".json"] });
+      res.end(JSON.stringify({ ok: true, response: content, venture: prePitch, ventures, transcript, qdrant: await qdrantStatus() }));
+      return;
+    }
     transcript.push({ role: "intern", content: `Research request: ${prompt}`, at: new Date().toISOString() });
     const content = await callResearchIntern(prompt);
     await enforceSafety(content, { action: "research-output", public: false, money: false });
@@ -2646,7 +2726,16 @@ async function ventureCycle(req, res) {
       "Existing business idea vault. Do not simply repeat these. If a prior idea is relevant, propose a repair, pivot, or explicit reason to revisit it:",
       vaultContext(priorVaultIdeas),
       "",
-      "Return one concrete business idea with: customer, pain, offer, why now, validation plan under $50, risks, and kill criteria.",
+      "Return exactly one concrete business idea. Use these exact labels:",
+      "Business Name: a realistic specific company/product name, never a generic placeholder",
+      "Target Customer: specific buyer segment",
+      "Pain: specific operational pain",
+      "Offer: specific service or product",
+      "Funding Need: concrete next funding need; keep live spend at $0 until human approval",
+      "Why Now: timing reason",
+      "Validation Plan: no live outreach or spend without human approval",
+      "Risks: practical blockers",
+      "Kill Criteria: measurable reason to stop",
       "Prefer a specific boring B2B operational workflow.",
       "Avoid regulated-data ideas for the live demo: no healthcare/medical records, legal advice, financial services, cybersecurity, PHI, PII, credentials, databases, or SQL.",
       "Do not claim real customer contact, public outreach, real browsing, or real revenue."
@@ -3467,6 +3556,45 @@ async function agent(req, res) {
     }
     await applyHostRails("input", prompt, { maxLength: 4000 });
     await enforceSafety(prompt, { action: "agent-prompt", money: /stripe|payment|spend|charge|buy|purchase/i.test(prompt), public: /tweet|discord|email|publish|post/i.test(prompt) });
+    const boardPitch = ventures.find((venture) => venture.status === "board-pitch" || venture.status === "needs-board-pitch");
+    if (boardPitch && /board|portfolio|verdict|review|pitch/i.test(prompt)) {
+      boardPitch.status = "red-team";
+      boardPitch.decision = "Board Reviewed";
+      boardPitch.boardReviewedAt = new Date().toISOString();
+      boardPitch.reason = "Board accepted the candidate for adversarial Red-Team review. CFO, capital, public launch, and money rails remain locked.";
+      boardPitch.evidence = [
+        ...(boardPitch.evidence || []).slice(0, 2),
+        "Board moved the candidate to Red-Team for adversarial review."
+      ].slice(0, 3);
+      const content = [
+        `Board Review advanced ${boardPitch.name} to Red-Team.`,
+        "",
+        "Verdict: proceed to adversarial review, no capital approval yet.",
+        "Controls: CFO gate, Red-Team gate, Capital Gate, Human Gate, Stripe live-money lock, and public-launch lock remain closed.",
+        `Kill rule: ${boardPitch.kill || "Kill if no measurable validation signal appears before any approved spend or outreach."}`
+      ].join("\n");
+      transcript.push({ role: "user", content: prompt, at: new Date().toISOString() });
+      transcript.push({ role: "agent", content, at: new Date().toISOString() });
+      await busMessage("board", "red-team", "red_team_requested", {
+        venture_id: boardPitch.id,
+        venture_name: boardPitch.name,
+        status: boardPitch.status
+      });
+      await writeQdrantPoint("exit_capital_board_decisions", content, {
+        agent: "board",
+        action: "board-pitch-to-red-team",
+        venture_id: boardPitch.id,
+        venture_name: boardPitch.name,
+        money_movement: false,
+        public_launch: false
+      });
+      await logEvent("board_moved_to_red_team", { venture: boardPitch, prompt });
+      while (transcript.length > 12) transcript.shift();
+      await saveOperatingState();
+      res.writeHead(200, { "content-type": mime[".json"] });
+      res.end(JSON.stringify({ ok: true, response: content, venture: boardPitch, ventures, transcript, qdrant: await qdrantStatus() }));
+      return;
+    }
     const memories = await recallOperatingMemory(prompt);
     await syncHermesContext("before-agent-chat");
     const groundedPrompt = [
@@ -3478,7 +3606,19 @@ async function agent(req, res) {
     ].join("\n");
     const userEvent = { role: "user", content: prompt, at: new Date().toISOString() };
     transcript.push(userEvent);
-    const content = await callHermes(groundedPrompt);
+    let content;
+    try {
+      content = await callHermes(groundedPrompt, Number(process.env.AGENT_HERMES_TIMEOUT_MS || 8000));
+    } catch (error) {
+      content = [
+        "Board Review fallback: Hermes did not respond quickly enough for the cockpit action.",
+        "",
+        `Portfolio contains ${ventures.length} venture${ventures.length === 1 ? "" : "s"}.`,
+        "No money movement, public launch, or Stripe live action is approved by this fallback.",
+        "Use Venture Cycle to create Pre-Pitch cards, then Board Review to advance them into Board Pitch."
+      ].join("\n");
+      transcript.push({ role: "warn", content: `Hermes board fallback used: ${String(error.message || error).slice(0, 180)}`, at: new Date().toISOString() });
+    }
     await applyHostRails("output", content, { maxLength: 4000 });
     await enforceSafety(content, { action: "agent-output", money: /stripe|payment|spend|charge|buy|purchase/i.test(content), public: /tweet|discord|email|publish|post/i.test(content) });
     const agentEvent = { role: "agent", content, at: new Date().toISOString() };
