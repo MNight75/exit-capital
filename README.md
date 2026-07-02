@@ -2,6 +2,8 @@
 
 See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the system map, runtime flow, and repository layout.
 
+Post-deadline architecture review: [docs/POST_DEADLINE_DESIGN_REVIEW_2026-07-01.md](docs/POST_DEADLINE_DESIGN_REVIEW_2026-07-01.md).
+
 ## Tested Pipeline Core
 
 The business rules for parsing research, moving cards through lanes, evaluating Red-Team results, and archiving failed ventures live in `lib/pipeline.mjs` with tests in `test/pipeline.test.mjs`.
